@@ -24,7 +24,7 @@ socket.on('v1response', async (message) => {
         const formattedCommand = `v1${endpoint.replace("/", " ")} ${JSON.stringify(response.data).replace(' ', '').replace('\n', '')}`;
 
         // Emit a 'broadcast' event with the response data
-        socket.emit('broadcast', { command: 'qwalletwithv1', message: { command: formattedCommand, flag: 'qwalletwithv1' } });
+        // socket.emit('broadcast', { command: 'qwalletwithv1', message: { command: formattedCommand, flag: 'qwalletwithv1' } });
     } catch (error) {
         console.error('An error occurred:', error);
     }

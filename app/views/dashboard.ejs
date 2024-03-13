@@ -8,6 +8,8 @@
         const socket = io();
         let password = "<%=password %>";
         let accounts = eval(`<%- JSON.stringify(result.display) %>`);
+        let confirmTickNumber = 5;
+        let currentTick = null;
         console.log(accounts);
         let currentAccountIdx = 0;
         let deleteIdx = null;
@@ -80,7 +82,8 @@
                 }
 
                 else if (flag == 'transfer' && password) {
-                    console.log(result, 'transfer')
+                    console.log(result, 'transfer');
+                    socket.emit("braodcast", {command: "liveSocketRequest", message: {address: result.display.rawhex}});
                 }
     
                 else if (flag == 'deleteaccount' && password) {
@@ -127,6 +130,10 @@
                             console.log(error)
                         })
                     }
+                }
+
+                else if (flag == "wss") {
+                    console.log(result, flag)
                 }
             }
         }
@@ -188,8 +195,17 @@
                 const cleanedString = currentAccount.replace(/\s+/g, '');
                 if(_msg.address && _msg.address == cleanedString) {
                     $("#balance").text(_msg.balance)
-                } else {
-                    $("#tick").text(_msg.tick)
+                }
+                // else {
+                //     $("#tick").text(_msg.tick)
+                // }
+                if(_msg.command == "CurrentTickInfo") {
+                    currentTick = _msg.tick;
+                    $("#tick").text(_msg.tick);
+                }
+                
+                if(_msg.wasm == 1) {
+                    socket.emit('broadcast', {command: "wssRequest", message: _msg})
                 }
             } catch (error) {
                 console.log(error)
@@ -198,6 +214,7 @@
 
         socket.on('result', handleResult)
         socket.on('transfer', handleResult)
+        socket.on('wssResponse', (msg) => handleResult)
         socket.on('testemit', (msg) => console.log(msg))
         socket.on('liveSocketResponse', handleLiveSocket)
 
@@ -220,9 +237,8 @@
             $("#transfer").click(() => {
                 const amount = $("#amount").val();
                 const address = $("#address").val();
-                const txtick = $('#tick').text();
-                console.log(amount);
-                callLoginQwallet(`send ${password},${currentAccountIdx},${txtick + 10},${address},${amount}`, 'transfer');
+                console.log(`send ${password},${currentAccountIdx},${currentTick + confirmTickNumber},${address},${amount}`);
+                callLoginQwallet(`send ${password},${currentAccountIdx},${currentTick + confirmTickNumber},${address},${amount}`, 'transfer');
             })
 
         });

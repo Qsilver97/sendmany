@@ -51,3 +51,13 @@ socket.on('v1request', async () => {
         // Error handling logic can be expanded here
     }
 });
+
+socket.on('wssRequest', async (msg) => {
+    try {
+        const result = await callQwallet({command: `wss ${JSON.stringify(msg)}`, flag: "wss"});
+        const parsedResult = JSON.parse(result.value);
+        socket.emit('braodcast', {command: 'wssResponse', message: parsedResult})
+    } catch {
+
+    }
+})
