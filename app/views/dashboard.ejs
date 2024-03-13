@@ -13,7 +13,7 @@
         console.log(accounts);
         let currentAccountIdx = 0;
         let deleteIdx = null;
-        socket.emit('broadcast', { command: 'liveSocketRequest', message: {address: accounts[0]} })
+        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[0], flag: "address"} })
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -37,7 +37,7 @@
             currentAccountIdx = idx;
             console.log(currentAccountIdx);
             $("#current-account").text(accounts[idx])
-            socket.emit('broadcast', { command: 'liveSocketRequest', message: {address} })
+            // socket.emit('broadcast', { command: 'liveSocketRequest', message: {address} })
             $('#accountModal').modal('hide');
         }
 
@@ -83,7 +83,7 @@
 
                 else if (flag == 'transfer' && password) {
                     console.log(result, 'transfer');
-                    socket.emit("braodcast", {command: "liveSocketRequest", message: {address: result.display.rawhex}});
+                    socket.emit("braodcast", {command: "liveSocketRequest", message: {data: result.display.rawhex, flag: "transfer"}});
                 }
     
                 else if (flag == 'deleteaccount' && password) {
