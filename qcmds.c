@@ -73,30 +73,6 @@ CurrentTickInfo getTickInfoFromNode(const char *nodeIp,int32_t nodePort)
     return result;
 }
 
-int32_t merkleRoot(uint8_t depth,int32_t index,uint8_t *data,int32_t datalen,uint8_t *siblings,uint8_t root[32])
-{
-    uint8_t pair[2][32];
-    if ( index < 0 )
-        return(-1);
-    KangarooTwelve(data,datalen,root,32);
-    for (int i=0; i<depth; i++)
-    {
-        if ( (index & 1) == 0 )
-        {
-            memcpy(pair[0],root,32);
-            memcpy(pair[1],siblings + i * 32,32);
-        }
-        else
-        {
-            memcpy(pair[1],root,32);
-            memcpy(pair[0],siblings + i * 32,32);
-        }
-        KangarooTwelve(&pair[0][0],sizeof(pair),root,32);
-        index >>= 1;
-    }
-    return(1);
-}
-
 RespondedEntity getBalance(const char *nodeIp,const int nodePort,const uint8_t *pubkey,uint8_t *merkleroot)
 {
     struct EntityRequest ER;

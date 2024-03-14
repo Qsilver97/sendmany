@@ -322,7 +322,7 @@ struct Fanout *fanout_create(char *origseed,char *fname,int32_t autogenflag)
                 {
                     memcpy(dest,line,60);
                     dest[60] = 0;
-                    amount = atol(line+61);
+                    amount = atoll(line+61);
                     if ( line[60] != ',' || line[61] == 0 || amount <= 0 || checkSumIdentity(dest) == 0 || strcmp(dest,firstaddr) == 0 )
                     {
                         printf("line.%d ERROR (%s) must be valid address and more than 0 QU and not to Z address\n",j,dest);
@@ -379,7 +379,7 @@ struct Fanout *fanout_create(char *origseed,char *fname,int32_t autogenflag)
             //sleep(1);
         }
         pubkey2addr(Paymentpubkeys[j],dest);
-        Startingbalances[j] = waitforbalance(0,Paymentpubkeys[j],latest);
+        //Startingbalances[j] = waitforbalance(0,Paymentpubkeys[j],latest);
         //printf("%s %s\n",dest,amountstr(Startingbalances[j]));
     }
     printf(" numpayments.%d total %s -> 1st address %s without fees\n",n,amountstr(fan->total),firstaddr);

@@ -95,7 +95,7 @@ long long __tm_to_secs(const struct tm *tm)
 uint32_t set_current_ymd(int32_t *yearp,int32_t *monthp,int32_t *dayp,int32_t *secondsp)
 {
     time_t     now;
-    struct tm  ts;
+    struct tm  *ts;
     long long t;
     char       buf[80];
     time(&now);
@@ -105,13 +105,17 @@ uint32_t set_current_ymd(int32_t *yearp,int32_t *monthp,int32_t *dayp,int32_t *s
     //tm_year    int    years since 1900
     // t.tm_hour = hour, t.tm_min = minute, t.tm_sec = second;
 
-    ts = *localtime(&now);
-    t = __tm_to_secs(&ts);
-    strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", &ts);
-    *yearp = 1900 + ts.tm_year;
-    *monthp = ts.tm_mon + 1;
-    *dayp = ts.tm_mday;
-    *secondsp = ts.tm_hour*3600 + ts.tm_min*60 + ts.tm_sec;
-    //printf("%s vs %d-%d-%d %u\n", buf,*yearp,*monthp,*dayp,(uint32_t)t);
-    return((uint32_t)t);
+    ts = localtime(&now);
+    if ( ts != 0 )
+    {
+        t = __tm_to_secs(ts);
+        strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+        *yearp = 1900 + ts->tm_year;
+        *monthp = ts->tm_mon + 1;
+        *dayp = ts->tm_mday;
+        *secondsp = ts->tm_hour*3600 + ts->tm_min*60 + ts->tm_sec;
+        //printf("%s vs %d-%d-%d %u\n", buf,*yearp,*monthp,*dayp,(uint32_t)t);
+        return((uint32_t)t);
+    }
+    else return(0);
 }

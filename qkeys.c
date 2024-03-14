@@ -152,6 +152,42 @@ bool addr2pubkey(const char *identity,uint8_t pubkey[32])
     return(true);
 }
 
+bool txid2digest(const char *txid,uint8_t digest[32])
+{
+    int64_t partial;
+    uint32_t checksum;
+    int32_t i,j,c;
+    memset(digest,0,32);
+    for (i=0; i<4; i++)
+    {
+        partial = 0;
+        for (j=14; j-- > 0; )
+        {
+            c = txid[i * 14 + j] - 'a';
+            if ( c < 0 || c >= 26 )
+            {
+                memset(digest,0,32);
+                return(false);
+            }
+            partial = partial * 26 + c;
+        }
+        *((int64_t *) &digest[i << 3]) = partial;
+    }
+    KangarooTwelve(digest,32,(uint8_t *)&checksum,3);
+    checksum &= 0x3FFFF;
+    for (i=0; i<4; i++)
+    {
+        if ( (checksum % 26) + 'a' != txid[56 + i] )
+        {
+            memset(digest,0,32);
+            return(false);
+        }
+        checksum /= 26;
+    }
+    return(true);
+}
+
+
 void deriveaddr(char *seed,char *extrastr,uint8_t subseed[32],uint8_t privatekey[32],uint8_t publickey[32],char addr[61])
 {
     uint8_t extraseed[64];
@@ -173,3 +209,19 @@ int seed2addr(char *seed,char *addr)
     deriveaddr(seed,(char *)"",subseed,privatekey,publickey,addr);
     return(0);
 }
+
+int32_t istxid(char *checkstr)
+{
+    int32_t i;
+    if ( strlen(checkstr) == 60 ) // could check for checksum too
+    {
+        for (i=0; i<60; i++)
+        {
+            if ( checkstr[i] < 'a' || checkstr[i] > 'z' )
+                return(0);
+        }
+        return(1);
+    }
+    return(0);
+}
+

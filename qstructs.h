@@ -8,6 +8,15 @@ struct quheader
     uint32_t _dejavu;
 };
 
+struct brequest
+{
+    struct brequest *prev,*next;
+    uint8_t pubkey[32];
+    int64_t sent,recv;
+    long fpos;
+    int32_t tick,prevtick;
+};
+
 struct qrequest
 {
     struct qrequest *prev,*next;
@@ -126,6 +135,30 @@ typedef struct
 {
     RequestedTickData requestedTickData;
 } RequestTickData;
+
+typedef struct
+{
+    unsigned short zero;
+    unsigned short epoch;
+    unsigned int tick;
+
+    unsigned short millisecond;
+    unsigned char second;
+    unsigned char minute;
+    unsigned char hour;
+    unsigned char day;
+    unsigned char month;
+    unsigned char year;
+
+    unsigned long long prevResourceTestingDigest;
+
+    uint8_t prevSpectrumDigest[32];
+    uint8_t prevUniverseDigest[32];
+    uint8_t prevComputerDigest[32];
+
+    uint8_t transactionDigest[32];
+    uint8_t prevqchain[32];
+} Qchain;
 
 typedef struct
 {

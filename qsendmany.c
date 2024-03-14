@@ -120,7 +120,7 @@ int sendmany(char *origseed,char *fname,int32_t autogenflag)
     }
     if ( (fan= fanout_create(origseed,fname,autogenflag)) != 0 )
     {
-        reclaim(origseed,fan->numdests,starttick);
+        //reclaim(origseed,fan->numdests,starttick);
         fanout_send(fan);
         fanout_subseed(origseed,(char *)"Z",subseed,firstaddr);
         printf("\nSEND TOTAL REQUIRED FOR SENDMANY INCLUDING FEES: %s to %s\nAll data logged in %s\n",amountstr(fan->total),firstaddr,fan->txidsdir);

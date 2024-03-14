@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -52,7 +51,7 @@ void *recvloop(void *_rcvmsgid)
 int main()
 {
     pthread_t recv_thread;
-    key_t key,rcvkey;
+    uint64_t key,rcvkey;
     uint8_t pubkey[32],data[2048];
     char line[4096];
     struct qbuffer M;
@@ -91,13 +90,14 @@ int main()
             }
             else
             {
-                hexToByte(line,(uint8_t *)M.mesg_text,len/2);
+                //hexToByte(line,(uint8_t *)M.mesg_text,len/2);
                 M.mesg_type = 1;
-                msgsnd(msgid,&M,len/2 + sizeof(uint64_t),IPC_NOWAIT);
+                H = quheaderset(0xff,len);
+                memcpy(M.mesg_text,&H,sizeof(H));
+                memcpy(&M.mesg_text[sizeof(H)],line,len+1);
+                msgsnd(msgid,&M,len+1 + sizeof(H) + sizeof(uint64_t),IPC_NOWAIT);
             }
         }
     }
     return(0);
 }
-
-    

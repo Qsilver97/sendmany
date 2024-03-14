@@ -28,6 +28,57 @@ void devurandom(uint8_t *buf,long len)
     }
 }
 
+void randseed55(char *seed)
+{
+    int32_t i;
+    char c;
+    for (i=0; i<55; i++)
+    {
+        devurandom((uint8_t *)&c,1);
+        seed[i] = 'a' + ((c&0x7f) % 26);
+    }
+}
+
+void makeaddress(char *addr,char *seed)
+{
+    uint8_t subseed[32],privkey[32],pubkey[32];
+    memset(addr,0,64);
+    getSubseedFromSeed((const uint8_t *)seed,subseed);
+    getPrivateKeyFromSubSeed(subseed,privkey);
+    getPublicKeyFromPrivateKey(privkey,pubkey);
+    pubkey2addr(pubkey,addr);
+}
+
+void seediter(char *str) // last char cannot be P or bigger
+{
+    char seed[56],addr[128];
+    int32_t len;
+    randseed55(seed);
+    memset(addr,0,sizeof(addr));
+    makeaddress(addr,seed);
+    len = (int32_t)strlen(str);
+    //printf("%s len.%d (%s) [%s]\n",addr,len,&addr[60-len],str);
+    if ( strncmp(addr,str,len) == 0 || strcmp(&addr[60-len],str) == 0 )
+    {
+        fprintf(stderr,"seed %s -> %s\n",seed,addr);
+        fflush(stderr);
+    }
+}
+
+void makevanity(char *str)
+{
+    uint32_t i,j;
+    printf("find vanity address starting with or ending with (%s)\n",str);
+    for (j=0; j<100000; j++)
+    {
+        //printf("start vanity search.%d for %s\n",j,str);
+        fflush(stdout);
+        for (i=0; i<26*26*26; i++)
+            seediter(str);
+    }
+    printf("finished\n");
+}
+
 struct quheader quheaderset(uint8_t type,int32_t size)
 {
     struct quheader H;
@@ -43,6 +94,30 @@ struct quheader quheaderset(uint8_t type,int32_t size)
             H._dejavu = 1;
     }
     return(H);
+}
+
+int32_t merkleRoot(uint8_t depth,int32_t index,uint8_t *data,int32_t datalen,uint8_t *siblings,uint8_t root[32])
+{
+    uint8_t pair[2][32];
+    if ( index < 0 )
+        return(-1);
+    KangarooTwelve(data,datalen,root,32);
+    for (int i=0; i<depth; i++)
+    {
+        if ( (index & 1) == 0 )
+        {
+            memcpy(pair[0],root,32);
+            memcpy(pair[1],siblings + i * 32,32);
+        }
+        else
+        {
+            memcpy(pair[1],root,32);
+            memcpy(pair[0],siblings + i * 32,32);
+        }
+        KangarooTwelve(&pair[0][0],sizeof(pair),root,32);
+        index >>= 1;
+    }
+    return(1);
 }
 
 char dir_delim(void)
@@ -77,6 +152,7 @@ void makedir(const char *dirname)
     {
         sprintf(cmd,"mkdir %s",dirname);
         system(cmd);
+        printf("makedir %s\n",cmd);
     } else fclose(fp);
 }
 
@@ -145,6 +221,13 @@ char *amountstr4(uint64_t amount)
     return(str);
 }
 
+char *amountstr5(uint64_t amount)
+{
+    static char str[64];
+    sprintf(str,FMT64,amount);
+    return(str);
+}
+
 void byteToHex(const uint8_t* byte, char* hex, const int sizeInByte)
 {
     for (int i = 0; i < sizeInByte; i++){
@@ -157,6 +240,59 @@ void hexToByte(const char* hex, uint8_t* byte, const int sizeInByte)
     for (int i = 0; i < sizeInByte; i++){
         sscanf(hex+i*2, "%2hhx", &byte[i]);
     }
+}
+
+int32_t ishexstr(char *str)
+{
+    int32_t i,c;
+    for (i=0; str[i]!=0; i++)
+    {
+        if ( ((c=str[i]) >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9') )
+            continue;
+        return(0);
+    }
+    if ( (i & 1) != 0 )
+        return(0);
+    return(1);
+}
+
+int32_t checktxsig(char *addr,char *rawhex)
+{
+    uint8_t txbytes[MAX_INPUT_SIZE*4],digest[32],pubkey[32];
+    int32_t datalen = (int32_t)strlen(rawhex) / 2;
+    if ( datalen == 0 )
+        return(0);
+    hexToByte(rawhex,txbytes,datalen);
+    KangarooTwelve(txbytes,datalen-64,digest,32);
+    if ( addr2pubkey(addr,pubkey) != 0 )
+    {
+        int v = verify(pubkey,digest,&txbytes[datalen-64]);
+        printf("checksig %d\n",v);
+        return(v);
+    }
+    else return(0);
+}
+
+int32_t validaterawhex(char *rawhex,uint8_t txdata[MAX_INPUT_SIZE*2],char *txidstr)
+{
+    uint8_t digest[32];
+    char src[64],dest[64];
+    int32_t validated;
+    Transaction tx;
+    int32_t datalen = (int32_t)strlen(rawhex)/2;
+    txidstr[0] = 0;
+    if ( datalen < sizeof(Transaction) || datalen > MAX_INPUT_SIZE * 2 )
+        return(0);
+    hexToByte(rawhex,txdata,datalen);
+    memcpy(&tx,txdata,sizeof(tx));
+    pubkey2addr(tx.sourcePublicKey,src);
+    pubkey2addr(tx.destinationPublicKey,dest);
+    validated = checktxsig(src,rawhex);
+    KangarooTwelve(txdata,datalen,digest,32);
+    getTxHashFromDigest(digest,txidstr);
+    txidstr[60] = 0;
+    printf("%s: %s sends %s to %s, txtick.%d type.%d extra.%d validated.%d\n",txidstr,src,amountstr(tx.amount),dest,tx.tick,tx.inputType,tx.inputSize,validated);
+    return(validated * datalen);
 }
 
 char *BIP39[] =

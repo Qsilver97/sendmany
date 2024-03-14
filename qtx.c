@@ -118,18 +118,3 @@ int32_t create_rawtransaction(char *rawhex,char *txhash,uint8_t digest[32],const
     printf("%s %s -> %s\n%s\n%s\n\n",addr,amountstr(amount),targetIdentity,txhash,rawhex);
     return(0);
 }
-
-int32_t checktxsig(char *addr,char *rawhex)
-{
-    uint8_t txbytes[MAX_INPUT_SIZE*2],digest[32],pubkey[32];
-    int32_t datalen = (int32_t)strlen(rawhex) / 2;
-    hexToByte(rawhex,txbytes,datalen);
-    KangarooTwelve(txbytes,datalen-64,digest,32);
-    if ( addr2pubkey(addr,pubkey) != 0 )
-    {
-        int v = verify(pubkey,digest,&txbytes[datalen-64]);
-        printf("checksig %d\n",v);
-        return(v);
-    }
-    else return(0);
-}

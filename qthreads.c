@@ -3,7 +3,6 @@
 //  fanout
 //
 
-uint32_t LATEST_UTIME;
 int32_t txq_Numtx,CUR_tick,NUMCUR_tick,LATEST_NUMACTIVE,NUMFAILS,NUMGOOD,TXQ_PAUSE = 1;
 
 struct txq_done

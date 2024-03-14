@@ -1,4 +1,4 @@
-    
+
 
 
 //#define TESTNET
@@ -11,7 +11,7 @@
 #else
 #define DEFAULT_NODE_PORT 21841
 #define DEFAULT_NODE_IP ((char *)"185.70.186.149")
-#define TICKOFFSET 10
+#define TICKOFFSET 5
 #endif
 
 #include <stdio.h>
@@ -37,27 +37,41 @@
 #include "qkeys.c"
 #include "qhelpers.c"
 
-
 #define JSON_BUFSIZE (65536)
 #define MAX_INDEX 100
+#define BALANCE_DEPTH 16
 
-int32_t LATEST_TICK,NUMADDRESSES;
-char LOGINADDRESSES[64][64];
-#ifdef QUEUE_COMMANDS
-char QWALLET_ARGS[4][1024],QWALLET_RESULTS[(sizeof(QWALLET_ARGS)/sizeof(*QWALLET_ARGS))][JSON_BUFSIZE],QWALLET_lasti;
-#endif
+int32_t LATEST_TICK,VALIDATED_TICK,HAVE_TXTICK;
+
+struct minientity
+{
+    uint8_t spectrum[32];
+    int64_t totalin,totalout;
+    int32_t tick;
+};
+
+struct balanceinfo
+{
+    char address[64];
+    struct minientity fifo[BALANCE_DEPTH],valid;
+};
+
+struct balanceinfo Balances[MAX_INDEX];
+
+struct pendingtx
+{
+    char address[64],dest[64],txid[64],password[512];
+    int64_t amount;
+    struct minientity before,after;
+    int32_t pendingtick,pendingid,txreq,gottx,pwindex;
+} PENDINGTX;
+
+char PENDINGRESULT[4096],PENDINGSTATUS[4096];
+char CURRENTRAWTX[MAX_INPUT_SIZE * 3];
 
 // C code "linked" in by #include
 #include "qtime.c"
-//#include "qconn.c"
-//#include "qcmds.c"
 #include "qtx.c"
-//#include "qthreads.c"
-//#include "qpeers.c"
-//#include "qfanout.c"
-//#include "qsendmany.c"
-//#include "qtests.c"
-
 
 char *wasm_result(int32_t retval,char *displaystr,int32_t seedpage)
 {
@@ -67,59 +81,6 @@ char *wasm_result(int32_t retval,char *displaystr,int32_t seedpage)
     else strcpy(tmpstr,displaystr);
     sprintf(json,"{\"result\":%d,\"display\":%s,\"seedpage\":%d}",retval,tmpstr,seedpage);
     return(json);
-}
-
-int32_t statusupdate(char *jsonstr)
-{
-    long val;
-    result(json_element) element_result = json_parse(jsonstr);
-    if ( result_is_err(json_element)(&element_result) )
-    {
-        typed(json_error) error = result_unwrap_err(json_element)(&element_result);
-        fprintf(stderr, "Error parsing JSON: %s\n", json_error_to_string(error));
-        return(-1);
-    }
-    typed(json_element) element = result_unwrap(json_element)(&element_result);
-    result(json_element) latest_element_result = json_object_find(element.value.as_object, "latest");
-    if ( result_is_err(json_element)(&latest_element_result) )
-    {
-        typed(json_error) error = result_unwrap_err(json_element)(&latest_element_result);
-        fprintf(stderr, "Error getting element \"latest\": %s\n", json_error_to_string(error));
-        return(-1);
-    }
-    typed(json_element) latest_element = result_unwrap(json_element)(&latest_element_result);
-    typed(json_array) *arr = latest_element.value.as_array;
-    if ( arr->count == 2 )
-    {
-        typed(json_element) element = arr->elements[1];
-        typed(json_element_value) value = element.value;
-        val = value.as_number.value.as_long;
-        if ( val > LATEST_TICK )
-        {
-            LATEST_TICK = val;
-            printf("LATEST_TICK.%d\n",LATEST_TICK);
-        }
-    }
-    json_free(&element);
-    return(LATEST_TICK);
-}
-
-void loginaddress(char *addr)
-{
-    int32_t i;
-    
-    for (i=0; i<NUMADDRESSES; i++)
-    {
-        if ( strcmp(LOGINADDRESSES[i],addr) == 0 )
-            return;
-    }
-    if ( NUMADDRESSES >= sizeof(LOGINADDRESSES)/sizeof(*LOGINADDRESSES) )
-    {
-        printf("too many addresses, cannot track anymore. restart Qwallet\n");
-        return;
-    }
-    strcpy(LOGINADDRESSES[NUMADDRESSES],addr);
-    NUMADDRESSES++;
 }
 
 void accountfname(char *password,int32_t index,char *fname,uint8_t salt[32])
@@ -169,12 +130,14 @@ char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
     char *password,*dest,txid[64],addr[64],rawhex[4096];
     uint8_t txdigest[32],subseed[32],privatekey[32],publickey[32],destpub[32],extradata[MAX_INPUT_SIZE];
     int64_t amount;
-    int32_t txtick,datalen=0,index = 0;
+    int32_t txtick,datalen=0,i,pwindex = 0;
+    if ( PENDINGTX.pendingid != 0 )
+        return(wasm_result(-1,"Qwallet already has transaction pending",0));
     if ( argc < 5 || argc > 6 )
         return(wasm_result(-2,"_sendfunc needs password index txtick dest amount [hexstr]",0));
     password = argv[0];
-    index = atoi(argv[1]);
-    if ( index < 0 || index >= MAX_INDEX )
+    pwindex = atoi(argv[1]);
+    if ( pwindex < 0 || pwindex >= MAX_INDEX )
         return(wasm_result(-3,"_sendfunc needs non negative index less than 100",0));
     txtick = atoi(argv[2]);
     dest = argv[3];
@@ -198,11 +161,13 @@ char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
     }
     amount = atoll(argv[4]);
     txid[0] = 0;
-    if ( accountcodec("rb",password,index,subseed) == 0 )
+    if ( accountcodec("rb",password,pwindex,subseed) == 0 )
     {
         getPrivateKeyFromSubSeed(subseed,privatekey);
         getPublicKeyFromPrivateKey(privatekey,publickey);
         pubkey2addr(publickey,addr);
+        if ( strcmp(addr,dest) == 0 )
+            return(wasm_result(-4,"sending to same address not supported",0));
         if ( argc == 6 )
         {
             datalen = strlen(argv[5]) / 2;
@@ -212,12 +177,34 @@ char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
             txtick = LATEST_TICK + TICKOFFSET;
         create_rawtxhex(rawhex,txid,txdigest,subseed,txtype,publickey,destpub,amount,extradata,datalen,txtick);
         txid[60] = 0;
-        sprintf(str,"{\"txtick\":%d,\"txid\":\"%s\",\"rawhex\":\"%s\",\"addr\":\"%s\",\"amount\":%s,\"dest\":\"%s\"}",txtick,txid,rawhex,addr,amountstr(amount),dest);
+        //sprintf(str,"{\"txtick\":%d,\"txid\":\"%s\",\"rawhex\":\"%s\",\"addr\":\"%s\",\"amount\":%s,\"dest\":\"%s\"}",txtick,txid,rawhex,addr,amountstr(amount),dest);
         memset(subseed,0xff,sizeof(subseed));
         memset(privatekey,0xff,sizeof(privatekey));
-        char *retstr = wasm_result(0,str,0);
-        printf("%s\n",retstr);
-        return(retstr);
+        strcpy(CURRENTRAWTX,rawhex);
+        for (i=0; i<MAX_INDEX; i++)
+        {
+            if ( strcmp(addr,Balances[i].address) == 0 )
+            {
+                PENDINGTX.pendingid = 1;
+                strcpy(PENDINGTX.txid,txid);
+                strcpy(PENDINGTX.password,password);
+                PENDINGTX.pwindex = pwindex;
+                strcpy(PENDINGTX.address,addr);
+                strcpy(PENDINGTX.dest,dest);
+                PENDINGTX.amount = amount;
+                PENDINGTX.pendingtick = txtick;
+                PENDINGTX.txreq = 0;
+                PENDINGTX.gottx = 0;
+                // check for valid balance and error if not enough funds
+                PENDINGTX.before = Balances[i].valid;
+                sprintf(PENDINGSTATUS,"transaction %s broadcast for tick %d",txid,txtick);
+                break;
+            }
+        }
+        memset(PENDINGRESULT,0,sizeof(PENDINGRESULT));
+        if ( i == MAX_INDEX )
+            return(wasm_result(0,"send broadcast but not queued since address could not be found",0));
+        return(wasm_result(PENDINGTX.pendingid,"send queued",0));
     }
     return(wasm_result(-5,"unknown user account password file not found or invalid index",0));
 }
@@ -313,7 +300,6 @@ char *loginfunc(char **argv,int32_t argc)
         getPrivateKeyFromSubSeed(subseed,privatekey);
         getPublicKeyFromPrivateKey(privatekey,publickey);
         pubkey2addr(publickey,addr);
-        loginaddress(addr);
         //printf("found encrypted file for (%s) -> %s\n",password,addr);
         memset(subseed,0xff,sizeof(subseed));
         memset(privatekey,0xff,sizeof(privatekey));
@@ -428,14 +414,14 @@ char *deletefunc(char **argv,int32_t argc)
     deletefile(fname);
     if ( index > 0 )
         return(wasm_result(0,"password,index file deleted",0));
-    while ( 1 )
+    for (index=1; index<MAX_INDEX; index++)
     {
-        index++;
         accountfname(password,index,fname,salt);
-        if ( (fp= fopen(fname,"rb")) == 0 )
-            return(wasm_result(0,"all consecutive index files for password deleted",0));
-        fclose(fp);
-        deletefile(fname);
+        if ( (fp= fopen(fname,"rb")) != 0 )
+        {
+            fclose(fp);
+            deletefile(fname);
+        }
     }
     sprintf(retstr,"%d index files deleted for password",index);
     return(wasm_result(0,retstr,0));
@@ -452,6 +438,7 @@ char *listfunc(char **argv,int32_t argc)
         return(wasm_result(-20,"list needs password",0));
     password = argv[0];
     memset(addrs,0,sizeof(addrs));
+    memset(Balances,0,sizeof(Balances));
     if ( accountcodec("rb",password,0,origsubseed) == 0 )
     {
         for (index=0; index<MAX_INDEX; index++)
@@ -466,6 +453,7 @@ char *listfunc(char **argv,int32_t argc)
             getPrivateKeyFromSubSeed(subseed,privkey);
             getPublicKeyFromPrivateKey(privkey,pubkey);
             pubkey2addr(pubkey,addrs[index]);
+            strcpy(Balances[index].address,addrs[index]);
             //printf("index.%d %s\n",index,addrs[index]);
         }
     }
@@ -542,9 +530,179 @@ char *_qwallet(char *_args)
     return(wasm_result(-1,"unknown command",0));
 }
 
+const char *json_strval(typed(json_element) element,char *field)
+{
+    result(json_element) command_element_result = json_object_find(element.value.as_object, field);
+    if ( result_is_err(json_element)(&command_element_result) )
+    {
+        typed(json_error) error = result_unwrap_err(json_element)(&command_element_result);
+        return("");
+    }
+    typed(json_element) command_element = result_unwrap(json_element)(&command_element_result);
+    typed(json_element_value) value = command_element.value;
+    return(value.as_string);
+}
+
+int64_t json_numval(typed(json_element) element,char *field)
+{
+    result(json_element) command_element_result = json_object_find(element.value.as_object, field);
+    if ( result_is_err(json_element)(&command_element_result) )
+    {
+        typed(json_error) error = result_unwrap_err(json_element)(&command_element_result);
+        return(0);
+    }
+    typed(json_element) command_element = result_unwrap(json_element)(&command_element_result);
+    typed(json_element_value) value = command_element.value;
+    return(value.as_number.value.as_long);
+}
+
+int32_t wssupdate(char *jsonstr)
+{
+    const char *command,*addr,*spectrum,*txid;
+    int64_t input,output,sent;
+    int32_t tick,index,f;
+    uint8_t digest[32];
+    result(json_element) element_result = json_parse(jsonstr);
+    if ( result_is_err(json_element)(&element_result) )
+    {
+        typed(json_error) error = result_unwrap_err(json_element)(&element_result);
+        fprintf(stderr, "Error parsing JSON: %s\n", json_error_to_string(error));
+        return(-1);
+    }
+    typed(json_element) element = result_unwrap(json_element)(&element_result);
+    command = json_strval(element,(char *)"command");
+    if ( strcmp(command,(char *)"EntityInfo") == 0 )
+    {
+        addr = json_strval(element,(char *)"address");
+        spectrum = json_strval(element,(char *)"spectrum");
+        tick = json_numval(element,(char *)"tick");
+        input = atoll(json_strval(element,(char *)"totalincoming"));
+        output = atoll(json_strval(element,(char *)"totaloutgoing"));
+        if ( tick != 0 )
+        {
+            for (index=0; index<MAX_INDEX; index++)
+            {
+                if ( strcmp(addr,Balances[index].address) == 0 )
+                {
+                    for (f=0; f<BALANCE_DEPTH; f++)
+                    {
+                        if ( Balances[index].fifo[f].tick == 0 )
+                            break;
+                    }
+                    if ( f == BALANCE_DEPTH )
+                    {
+                        for (f=0; f<BALANCE_DEPTH-1; f++)
+                            Balances[index].fifo[f] = Balances[index].fifo[f+1];
+                    }
+                    hexToByte(spectrum,Balances[index].fifo[f].spectrum,32);
+                    Balances[index].fifo[f].tick = tick;
+                    Balances[index].fifo[f].totalin = input;
+                    Balances[index].fifo[f].totalout = output;
+                    break;
+                }
+            }
+        }
+        printf("balance.(%s) index.%d tick.%d %s %s %s %s\n",addr,index,tick,amountstr3(input-output),amountstr(input),amountstr2(output),spectrum);
+    }
+    else if ( strcmp(command,(char *)"txidrequest") == 0 )
+    {
+        txid = json_strval(element,(char *)"txid");
+        tick = json_numval(element,(char *)"tick");
+        printf("JSON.(%s)\n",jsonstr);
+        if ( PENDINGTX.pendingid != 0 && strcmp(PENDINGTX.txid,txid) == 0 && PENDINGTX.pendingtick == tick )
+        {
+            PENDINGTX.gottx = 1;
+            sprintf(PENDINGSTATUS,"%s included in tick %d, waiting for balance change validation",PENDINGTX.txid,tick);
+        }
+        printf("txidrequest tick.%d %s txreq.%d gottx.%d\n",tick,txid,PENDINGTX.txreq,PENDINGTX.gottx);
+    }
+    else if ( strcmp(command,(char *)"validated") == 0 )
+    {
+        spectrum = json_strval(element,(char *)"spectrum");
+        tick = json_numval(element,(char *)"tick");
+        HAVE_TXTICK = json_numval(element,(char *)"havetx");
+        hexToByte(spectrum,digest,32);
+        VALIDATED_TICK = tick;
+        //printf("validated tick.%d latest.%d %s\n",tick,LATEST_TICK,spectrum);
+        for (index=0; index<MAX_INDEX; index++)
+        {
+            for (f=0; f<BALANCE_DEPTH; f++)
+            {
+                if ( Balances[index].fifo[f].tick == tick )
+                {
+                    char hexstr[65];
+                    byteToHex(Balances[index].fifo[f].spectrum,hexstr,32);
+                    //printf("%s Balanced[%d].fifo[%d].tick matches %d %s\n",Balances[index].address,index,f,Balances[index].fifo[f].tick,hexstr);
+                    if ( memcmp(digest,Balances[index].fifo[f].spectrum,32) == 0 )
+                    {
+                        Balances[index].valid = Balances[index].fifo[f];
+                        sent = 0;
+                        if ( strcmp(PENDINGTX.address,Balances[index].address) == 0 && PENDINGTX.pendingid != 0 )
+                        {
+                            if ( tick < PENDINGTX.pendingtick )
+                            {
+                                printf("set %s pending.before from %d to %d, pendingtick.%d\n",PENDINGTX.address,PENDINGTX.before.tick,tick,PENDINGTX.pendingtick);
+                                PENDINGTX.before = Balances[index].valid;
+                            }
+                            else if ( tick > PENDINGTX.pendingtick )
+                            {
+                                printf("tick %d > %d check for balance change sent %s vs %s\n",tick,PENDINGTX.pendingtick,amountstr(PENDINGTX.before.totalout),amountstr(Balances[index].valid.totalout));
+                                if ( PENDINGTX.before.totalout != Balances[index].valid.totalout )
+                                {
+                                    sent = (Balances[index].valid.totalout - PENDINGTX.before.totalout);
+                                    if ( sent == PENDINGTX.amount )
+                                    {
+                                        strcpy(PENDINGSTATUS,"send completed");
+                                        sprintf(PENDINGRESULT,"PENDINGTX.%s completed!",PENDINGTX.txid);
+                                        // set txjson
+                                    }
+                                    else
+                                    {
+                                        sprintf(PENDINGSTATUS,"send %s error",PENDINGTX.txid);
+                                        sprintf(PENDINGRESULT,"{\"error\":\"unexpected balance change %s instead of %s\"}",amountstr(sent),amountstr(PENDINGTX.amount));
+                                    }
+                                }
+                                else
+                                {
+                                    strcpy(PENDINGSTATUS,"pending send failed, resending");
+                                    printf("PENDINGTX failed, resend\n");
+                                    memset(PENDINGTX.txid,0,sizeof(PENDINGTX.txid));
+                                    char *argv[6],numstr[16],numstr2[16];
+                                    sprintf(numstr,"%d",PENDINGTX.pwindex);
+                                    sprintf(numstr2,"%d",LATEST_TICK+TICKOFFSET);
+                                    argv[0] = PENDINGTX.password;
+                                    argv[1] = numstr;
+                                    argv[2] = numstr2;
+                                    argv[3] = PENDINGTX.dest;
+                                    argv[4] = amountstr(PENDINGTX.amount);
+                                    PENDINGTX.gottx = PENDINGTX.txreq = PENDINGTX.pendingtick = PENDINGTX.pendingid = 0;
+                                    printf("resend %s\n",sendfunc(argv,5));
+                                }
+                            }
+                        }
+                        printf("spectrum match for %s.%d\n",Balances[index].address,tick);
+                        break;
+                    }
+                    else printf("spectrum mismatch for %s.%d %s vs %s\n",Balances[index].address,tick,hexstr,spectrum);
+                }
+            }
+        }
+    }
+    else if ( strcmp(command,(char *)"CurrentTickInfo") == 0 )
+    {
+        tick = json_numval(element,(char *)"tick");
+        if ( tick > LATEST_TICK )
+            LATEST_TICK = tick;
+        //printf("current tick.%d latest.%d\n",tick,LATEST_TICK);
+    }
+    json_free(&element);
+    return(0);
+}
+
 char *qwallet(char *_args)
 {
     int32_t i,pendingid;
+    char *retstr;
     static char retbuf[JSON_BUFSIZE],toggle;
     //if ( strcmp(_args,"v1request") != 0 )
     //    printf("qwallet(%s)\n",_args);
@@ -558,73 +716,49 @@ char *qwallet(char *_args)
         }
         return(wasm_result(0,retbuf,0));
     }
+    else if ( strncmp(_args,(char *)"wss ",4) == 0 )
+    {
+        return(wasm_result(wssupdate(_args + 4),"got JSON",0));
+    }
     else if ( strncmp(_args,(char *)"status",6) == 0 )
     {
-#ifdef QUEUE_COMMANDS
-        pendingid = atoi(_args+7) % (sizeof(QWALLET_RESULTS)/sizeof(*QWALLET_RESULTS));
-        if ( QWALLET_RESULTS[pendingid][0] == 0 )
+        pendingid = atoi(_args+7);
+        if ( PENDINGTX.pendingid == 0 )
+            return(wasm_result(pendingid,"no command pending",0));
+        if ( pendingid != 1 )
+            return(wasm_result(-1,"invalid pendingid",0));
+        if ( PENDINGRESULT[0] == 0 )
         {
-            if ( QWALLET_ARGS[pendingid][0] == 0 )
-                return(wasm_result(pendingid,"no command pending",0));
-            else return(wasm_result(pendingid,"command pending",0));
+            printf("%s\n",PENDINGSTATUS);
+            return(wasm_result(pendingid,PENDINGSTATUS,0));
         }
         else
         {
-            strcpy(retbuf,QWALLET_RESULTS[pendingid]);
-            memset(QWALLET_RESULTS[pendingid],0,sizeof(QWALLET_RESULTS[pendingid]));
-            memset(QWALLET_ARGS[pendingid],0,sizeof(QWALLET_ARGS[pendingid]));
-            return(retbuf);
+            retstr = wasm_result(0,PENDINGRESULT,0);
+            memset(PENDINGSTATUS,0,sizeof(PENDINGSTATUS));
+            memset(PENDINGRESULT,0,sizeof(PENDINGRESULT));
+            memset(&PENDINGTX,0,sizeof(PENDINGTX));
+            return(retstr);
         }
-#else
-        return(wasm_result(pendingid,"command pending",0));
-#endif
     }
     else if ( strncmp(_args,(char *)"v1request",9) == 0 )
     {
-        return(wasm_result(0,"status",0));
-        return(wasm_result(-13,(char *)"no v1requests available",0));
-    }
-    else if ( strncmp(_args,(char *)"v1status",8) == 0 )
-    {
-        statusupdate(&_args[9]);
-        return(wasm_result(0,(char *)"thank you for status!",0));
-    }
-    else if ( strncmp(_args,(char *)"v1address",9) == 0 )
-    {
-        printf("%s\n",_args);
-        return(wasm_result(0,(char *)"thank you for address!",0));
-    }
-    else if ( strncmp(_args,(char *)"v1tick-data",11) == 0 )
-    {
-        printf("tick-data %s\n",_args);
-        return(wasm_result(0,(char *)"thank you for tick-data!",0));
-    }
-    else if ( strncmp(_args,(char *)"v1quorum",8) == 0 )
-    {
-        printf("quorum data %s\n",_args);
-        return(wasm_result(0,(char *)"thank you for quorum data!",0));
-    }
-    else if ( strncmp(_args,(char *)"v1tx",4) == 0 )
-    {
-        printf("txid %s\n",_args);
-        return(wasm_result(0,(char *)"thank you for txid!",0));
-    }
-#ifdef QUEUE_COMMANDS
-    for (i=0; i<(sizeof(QWALLET_ARGS)/sizeof(*QWALLET_ARGS)); i++)
-    {
-        pendingid = (QWALLET_lasti + i + 1) % (sizeof(QWALLET_ARGS)/sizeof(*QWALLET_ARGS));
-        if ( QWALLET_ARGS[pendingid][0] == 0 )
+        //printf("v1request %s\n",CURRENTRAWTX);
+        if ( CURRENTRAWTX[0] != 0 )
         {
-            strcpy(QWALLET_ARGS[pendingid],_args);
-            memset(QWALLET_RESULTS[i],0,sizeof(QWALLET_RESULTS[i]));
-            QWALLET_lasti = pendingid;
-            return(wasm_result(pendingid,"command queued",0));
+            retstr = wasm_result(0,CURRENTRAWTX,0);
+            memset(CURRENTRAWTX,0,sizeof(CURRENTRAWTX));
+            return(retstr);
         }
+        else if ( PENDINGTX.pendingid != 0 && PENDINGTX.txreq == 0 && HAVE_TXTICK > PENDINGTX.pendingtick )
+        {
+            PENDINGTX.txreq = 1;
+            sprintf(PENDINGSTATUS,"checking for %s tick.%d",PENDINGTX.txid,PENDINGTX.pendingtick);
+            return(wasm_result(0,PENDINGTX.txid,0));
+        }
+        return(wasm_result(-1,"no request",0));
     }
-    return(wasm_result(-6,"command queue full",0));
-#else
     return(_qwallet(_args));
-#endif
 }
 
 #ifdef EMSCRIPTEN
@@ -666,18 +800,6 @@ int main()
                 });
             );
         }
-#ifdef QUEUE_COMMANDS
-        for (i=0; i<(sizeof(QWALLET_ARGS)/sizeof(*QWALLET_ARGS)); i++)
-        {
-            if ( QWALLET_ARGS[i][0] != 0 && QWALLET_RESULTS[i][0] == 0 )
-            {
-                printf("QWALLET_ARGS[%d] (%s)\n",i,QWALLET_ARGS[i]);
-                char *retstr = _qwallet(QWALLET_ARGS[i]);
-                printf("Q.%d returns.(%s)\n",i,retstr);
-                strcpy(QWALLET_RESULTS[i],retstr);
-             }
-        }
-#endif
         emscripten_sleep(100);
     }
 }
@@ -691,5 +813,4 @@ int main()
 #endif
 
 // finish sendmany extradata construction
-
-    
+// fix tx signing for derived index

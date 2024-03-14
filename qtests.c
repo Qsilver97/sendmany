@@ -88,23 +88,6 @@ void testrandom(char *origseed)
     // get Tickdata and check for txid, if found display balance
 }
 
-
-int32_t validaterawhex(char *rawhex)
-{
-    uint8_t buf[4096];
-    char src[64],dest[64];
-    int32_t validated;
-    Transaction tx;
-    int32_t datalen = (int32_t)strlen(rawhex)/2;
-    hexToByte(rawhex,buf,datalen);
-    memcpy(&tx,buf,sizeof(tx));
-    pubkey2addr(tx.sourcePublicKey,src);
-    pubkey2addr(tx.destinationPublicKey,dest);
-    validated = checktxsig(src,rawhex);
-    printf("%s sends %s to %s, txtick.%d type.%d extra.%d validated.%d\n",src,amountstr(tx.amount),dest,tx.tick,tx.inputType,tx.inputSize,validated);
-    return(0);
-}
-
 struct mesg_buffer {
     long mesg_type;
     char mesg_text[100];
