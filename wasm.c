@@ -1,4 +1,4 @@
-
+    
 
 
 //#define TESTNET
@@ -124,11 +124,20 @@ int32_t accountcodec(char *rw,char *password,int32_t index,uint8_t subseed[32])
     return(retval);
 }
 
+void subseedcombine(uint8_t subseed[32],uint8_t subseed2[32])
+{
+    uint8_t seedbuf[64];
+    memcpy(seedbuf,subseed,32);
+    memcpy(seedbuf+32,subseed2,32);
+    KangarooTwelve(seedbuf,64,subseed,32);
+    memset(seedbuf,0xff,sizeof(seedbuf));
+}
+
 char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
 {
     static char str[4096+1024];
     char *password,*dest,txid[64],addr[64],rawhex[4096];
-    uint8_t txdigest[32],subseed[32],privatekey[32],publickey[32],destpub[32],extradata[MAX_INPUT_SIZE];
+    uint8_t txdigest[32],subseed[32],subseed2[32],privatekey[32],publickey[32],destpub[32],extradata[MAX_INPUT_SIZE];
     int64_t amount;
     int32_t txtick,datalen=0,i,pwindex = 0;
     if ( PENDINGTX.pendingid != 0 )
@@ -161,8 +170,15 @@ char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
     }
     amount = atoll(argv[4]);
     txid[0] = 0;
-    if ( accountcodec("rb",password,pwindex,subseed) == 0 )
+    if ( accountcodec("rb",password,0,subseed) == 0 )
     {
+        if ( pwindex > 0 )
+        {
+            if ( accountcodec("rb",password,pwindex,subseed2) != 0 )
+                return(wasm_result(-4,"cannot find derived key",0));
+            subseedcombine(subseed,subseed2);
+            memset(subseed2,0xff,sizeof(subseed2));
+        }
         getPrivateKeyFromSubSeed(subseed,privatekey);
         getPublicKeyFromPrivateKey(privatekey,publickey);
         pubkey2addr(publickey,addr);
@@ -177,7 +193,7 @@ char *_sendfunc(char **argv,int32_t argc,int32_t txtype)
             txtick = LATEST_TICK + TICKOFFSET;
         create_rawtxhex(rawhex,txid,txdigest,subseed,txtype,publickey,destpub,amount,extradata,datalen,txtick);
         txid[60] = 0;
-        //sprintf(str,"{\"txtick\":%d,\"txid\":\"%s\",\"rawhex\":\"%s\",\"addr\":\"%s\",\"amount\":%s,\"dest\":\"%s\"}",txtick,txid,rawhex,addr,amountstr(amount),dest);
+        printf("{\"txtick\":%d,\"txid\":\"%s\",\"rawhex\":\"%s\",\"addr\":\"%s\",\"amount\":%s,\"dest\":\"%s\"}",txtick,txid,rawhex,addr,amountstr(amount),dest);
         memset(subseed,0xff,sizeof(subseed));
         memset(privatekey,0xff,sizeof(privatekey));
         strcpy(CURRENTRAWTX,rawhex);
@@ -236,15 +252,6 @@ char *sendmanyfunc(char **argv,int32_t argc)
     argv[4] = totalstr;
     argv[5] = hexstr;
     return(_sendfunc(argv,argc,SENDTOMANYV1));
-}
-
-void subseedcombine(uint8_t subseed[32],uint8_t subseed2[32])
-{
-    uint8_t seedbuf[64];
-    memcpy(seedbuf,subseed,32);
-    memcpy(seedbuf+32,subseed2,32);
-    KangarooTwelve(seedbuf,64,subseed,32);
-    memset(seedbuf,0xff,sizeof(seedbuf));
 }
 
 char *loginfunc(char **argv,int32_t argc)
@@ -653,13 +660,14 @@ int32_t wssupdate(char *jsonstr)
                                     if ( sent == PENDINGTX.amount )
                                     {
                                         strcpy(PENDINGSTATUS,"send completed");
-                                        sprintf(PENDINGRESULT,"PENDINGTX.%s completed!",PENDINGTX.txid);
-                                        // set txjson
+                                        sprintf(PENDINGRESULT,"{\"txtick\":%d,\"txid\":\"%s\",\"addr\":\"%s\",\"amount\":%s,\"dest\":\"%s\"}",PENDINGTX.pendingtick,PENDINGTX.txid,PENDINGTX.address,amountstr(PENDINGTX.amount),PENDINGTX.dest);
+                                        memset(&PENDINGTX,0,sizeof(PENDINGTX));
                                     }
                                     else
                                     {
                                         sprintf(PENDINGSTATUS,"send %s error",PENDINGTX.txid);
                                         sprintf(PENDINGRESULT,"{\"error\":\"unexpected balance change %s instead of %s\"}",amountstr(sent),amountstr(PENDINGTX.amount));
+                                        memset(&PENDINGTX,0,sizeof(PENDINGTX));
                                     }
                                 }
                                 else
@@ -813,4 +821,5 @@ int main()
 #endif
 
 // finish sendmany extradata construction
-// fix tx signing for derived index
+
+    
