@@ -10,9 +10,53 @@
                 let recoverValue = null;
                 let password = null;
 
+                let hasRun = false;
                 function handleResult(msg) {
                     const result = JSON.parse(msg.value);
                     const flag = msg.flag;
+                    if (flag == 'check') {
+                        const modalStatus = document.getElementById('wordsModal').style.display
+                        const buttonStatus = document.getElementById('words-btn');
+                        const statusP = document.getElementById('wordsPassword');
+                        const buttonStatusC = document.getElementById('chars-btn');
+                        const statusC = document.getElementById('charsPassword');
+                        let sentenceExist = document.querySelector(".check-exist")
+                        let sentenceExistChars = document.querySelector(".check-exist-chars")
+                        if (result.result == 0) {
+                            const qPassword = "Q" + password;
+                            if (!hasRun) {
+                                console.log(modalStatus);
+                                hasRun = true;
+                                walletCheckAnother(qPassword);
+                            }
+                            if (modalStatus == '') {
+                                sentenceExistChars.style.display = 'none'
+                                statusC.style.borderBottomColor = 'green'
+                                buttonStatusC.disabled = false;
+                                buttonStatusC.style.cursor = 'pointer';
+                            } else {
+                                sentenceExist.style.display = 'none'
+                                statusP.style.borderBottomColor = 'green'
+                                buttonStatus.disabled = false;
+                                buttonStatus.style.cursor = 'pointer';
+                            }
+                        } else {
+                            if (modalStatus == '') {
+                                sentenceExistChars.style.display = 'block'
+                                buttonStatusC.disabled = true;
+                                buttonStatusC.style.cursor = 'no-drop';
+                                statusC.style.borderBottomColor = 'red'
+                            } else {
+                                sentenceExist.style.display = 'block'
+                                buttonStatus.disabled = true;
+                                buttonStatus.style.cursor = 'no-drop';
+                                statusP.style.borderBottomColor = 'red'
+                            }
+                            buttonStatus.disabled = true;
+                            buttonStatus.style.cursor = 'no-drop';
+                            statusP.style.borderBottomColor = 'red'
+                        }
+                    }
                     if (flag == 'recover' && password) {
                         if (result.result == 0) {
                             let actionPath = '';
@@ -140,25 +184,79 @@
                     }
                 }
 
+                function walletCheck(_password) {
+                    password = _password;
+                    socket.emit('run', { command: `checkavail ${_password}`, flag: 'check' })
+                }
+
+                function walletCheckAnother(_password) {
+                    password = _password;
+                    socket.emit('run', { command: `checkavail ${_password}`, flag: 'check' })
+                }
+
+                function handleChange(_password) {
+                    hasRun = false;
+
+                    walletCheck(_password);
+                }
+
+                $('#wordsPassword').on('input', function (event) {
+                    let validate = $('#wordsPassword').val();
+                    if (validate != '') {
+                        handleChange(validate);
+                    } else {
+                        console.log("object");
+                        let sentenceExist = document.querySelector(".check-exist")
+                        let statusOther = document.getElementById('wordsPassword');
+                        statusOther.style.borderBottomColor = 'red';
+                        sentenceExist.style.display = 'none'
+                    }
+                });
+
+                $('#confirmWordsPassword').on('input', function () {
+                    let CPstatusOther = document.getElementById('confirmWordsPassword');
+                    let statusOtherStyle = document.getElementById('wordsPassword').style.borderBottomColor;
+                    const wordsPassword = document.getElementById('wordsPassword').value;
+                    const confirmWordsPassword = document.getElementById('confirmWordsPassword').value;
+                    if (wordsPassword == confirmWordsPassword && wordsPassword != '' && confirmWordsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = statusOtherStyle
+                    } else if (wordsPassword != confirmWordsPassword && confirmWordsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = 'red'
+                    }
+                })
+
+                $('#charsPassword').on('input', function (event) {
+                    let validate = $('#charsPassword').val();
+                    if (validate != '') {
+                        handleChange(validate);
+                    } else {
+                        let statusOther = document.getElementById('charsPassword');
+                        let sentenceExistChars = document.querySelector(".check-exist-chars")
+                        statusOther.style.borderBottomColor = 'red';
+                        sentenceExistChars.style.display = 'none'
+                    }
+                });
+
+                $('#confirmCharsPassword').on('input', function () {
+                    let CPstatusOther = document.getElementById('confirmCharsPassword');
+                    let statusOtherStyle = document.getElementById('charsPassword').style.borderBottomColor;
+                    const charsPassword = document.getElementById('charsPassword').value;
+                    const confirmCharsPassword = document.getElementById('confirmCharsPassword').value;
+                    console.log("object");
+                    if (charsPassword == confirmCharsPassword && charsPassword != '' && confirmCharsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = statusOtherStyle
+                    } else if (charsPassword != confirmCharsPassword && confirmCharsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = 'red'
+                    }
+                })
+
                 $('#words-btn').click(() => {
 
                     const wordsPassword = document.getElementById('wordsPassword').value;
                     const confirmWordsPassword = document.getElementById('confirmWordsPassword').value;
 
                     if (wordsPassword == confirmWordsPassword && wordsPassword != '' && confirmWordsPassword != '') {
-                        const firstLetter = wordsPassword.charAt(0);
-                        if (firstLetter === 'Q') {
-                            Toastify({
-                                text: "Your password mustn't start with Q letter.",
-                                className: "warning",
-                                style: {
-                                    background: "red",
-                                    color: "white",
-                                }
-                            }).showToast();
-                        } else {
-                            wordsRecover(wordsPassword);
-                        }
+                        wordsRecover(wordsPassword);
                     } else {
                         Toastify({
                             text: "Please type your password correctly.",
@@ -177,19 +275,8 @@
                     const confirmCharsPassword = document.getElementById('confirmCharsPassword').value;
 
                     if (charsPassword == confirmCharsPassword && charsPassword != '' && confirmCharsPassword != '') {
-                        const firstLetter = charsPassword.charAt(0);
-                        if (firstLetter === 'Q') {
-                            charsRecover(charsPassword);
-                        } else {
-                            Toastify({
-                                text: "Your password must start with Q letter.",
-                                className: "warning",
-                                style: {
-                                    background: "red",
-                                    color: "white",
-                                }
-                            }).showToast();
-                        }
+                        const modified = 'Q' + charsPassword;
+                        charsRecover(modified);
                     } else {
                         Toastify({
                             text: "Please type your password correctly.",
@@ -267,6 +354,7 @@
                             <input type="password" name="" id="confirmWordsPassword"
                                 placeholder="Re-type your password">
                         </div>
+                        <p class="check-exist">Password already exitsts.</p>
                     </div>
                     <div class="start-q-password">
                         <p>Please check your seed again before entering.</p>
@@ -318,7 +406,8 @@
                                 <input type="password" name="" id="confirmCharsPassword"
                                     placeholder="Re-type your password">
                             </div>
-                        </div>
+                        <p class="check-exist-chars">Password already exitsts.</p>
+                    </div>
                         <div class="start-q-password">
                             <p>Please check your seed again before entering.</p>
                             <li>

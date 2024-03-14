@@ -211,6 +211,11 @@ body {
   #login-form {
     position: relative;
 
+    .check-available {
+      color: red;
+      display: none;
+    }
+
     span {
       position: absolute;
       top: 10px;
@@ -230,11 +235,6 @@ body {
     outline: none;
     color: #fff;
     font-size: 16px;
-  }
-
-  .check-available {
-    color: red;
-    display: none;
   }
 
   .backup {
@@ -336,8 +336,9 @@ $container-padding: 60px;
           margin-right: 5px;
           border: 1.5px solid #17517a;
           border-radius: 5px;
-          width: 80px;
+          width: 120px;
           outline: none;
+          text-align: center;
           background-color: transparent;
 
           &:focus {
@@ -346,7 +347,7 @@ $container-padding: 60px;
         }
 
         input.address {
-          width: 500px;
+          width: 720px;
         }
 
         button {
@@ -366,7 +367,7 @@ $container-padding: 60px;
         }
       }
 
-      .activity {
+      .activity {  
         margin-top: 40px;
         max-height: 1000px;
         overflow: auto;
@@ -442,7 +443,7 @@ $container-padding: 60px;
         justify-content: space-between;
         align-items: center;
         gap: 20px;
-
+        font-family: 'Roboto Mono';
         span {
           cursor: pointer;
           width: 100%;
@@ -456,7 +457,7 @@ $container-padding: 60px;
         .account-setting {
           display: flex;
           justify-content: space-between;
-          gap: 5px;
+          gap: 15px;
 
           i {
             cursor: pointer;
@@ -471,7 +472,7 @@ $container-padding: 60px;
   }
 
   .modal-dialog {
-    max-width: 768px;
+    max-width: 720px;
   }
 }
 
@@ -798,6 +799,22 @@ $container-padding: 60px;
   border-radius: 5px;
   margin-bottom: 20px;
 
+  .check-exist {
+    color: red;
+    text-align: center;
+    margin-top: 10px;
+    display: none;
+    margin-bottom: 0;
+  }
+
+  .check-exist-chars {
+    color: red;
+    text-align: center;
+    margin-top: 10px;
+    display: none;
+    margin-bottom: 0;
+  }
+
   .option-selected {
     outline: 2px inset;
   }
@@ -845,12 +862,3 @@ $container-padding: 60px;
     }
   }
 }
-
-// #create-btn {
-//   background-color: #6635b3;
-//   margin-top: 5px;
-
-//   &:hover {
-//     background-color: #4c2a85;
-//   }
-// }

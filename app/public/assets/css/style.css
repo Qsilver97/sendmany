@@ -195,6 +195,10 @@ body::after {
 .container #login-form {
   position: relative;
 }
+.container #login-form .check-available {
+  color: red;
+  display: none;
+}
 .container #login-form span {
   position: absolute;
   top: 10px;
@@ -212,10 +216,6 @@ body::after {
   outline: none;
   color: #fff;
   font-size: 16px;
-}
-.container .check-available {
-  color: red;
-  display: none;
 }
 .container .backup {
   margin-top: 20px;
@@ -297,15 +297,16 @@ body::after {
   margin-right: 5px;
   border: 1.5px solid #17517a;
   border-radius: 5px;
-  width: 80px;
+  width: 120px;
   outline: none;
+  text-align: center;
   background-color: transparent;
 }
 .dashboard-container .body .more-info .send input:focus {
   border-color: #2777b1;
 }
 .dashboard-container .body .more-info .send input.address {
-  width: 500px;
+  width: 720px;
 }
 .dashboard-container .body .more-info .send button {
   outline: none;
@@ -386,6 +387,7 @@ body::after {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
+  font-family: "Roboto Mono";
 }
 .modal .modal-content .modal-body .account span {
   cursor: pointer;
@@ -398,7 +400,7 @@ body::after {
 .modal .modal-content .modal-body .account .account-setting {
   display: flex;
   justify-content: space-between;
-  gap: 5px;
+  gap: 15px;
 }
 .modal .modal-content .modal-body .account .account-setting i {
   cursor: pointer;
@@ -407,7 +409,7 @@ body::after {
   color: red;
 }
 .modal .modal-dialog {
-  max-width: 768px;
+  max-width: 720px;
 }
 
 .delete-account-modal {
@@ -680,6 +682,20 @@ body::after {
   background: #00243f;
   border-radius: 5px;
   margin-bottom: 20px;
+}
+.start-q-password .check-exist {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+  display: none;
+  margin-bottom: 0;
+}
+.start-q-password .check-exist-chars {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+  display: none;
+  margin-bottom: 0;
 }
 .start-q-password .option-selected {
   outline: 2px inset;

@@ -13,25 +13,39 @@
                 function handleResult(msg) {
                     let result = JSON.parse(msg.value);
                     let flag = msg.flag;
-                    if(flag == 'check'){
-                        let status = document.querySelector(".check-available");
-                        let margin = document.getElementById('password');
-                        if(result.result == 0){
-                            console.log(flag, "flag");
+                    if (flag == 'check') {
+                        let status = document.querySelector("#password");
+                        let sentence = document.querySelector(".check-available")
+                        let sentenceExist = document.querySelector(".check-exist")
+                        if (result.result == 0) {
+                            const modalStatus = document.getElementById('wordsModal').style.display;
                             const qPassword = "Q" + password;
-                            status.style.display = 'block';
-                            margin.style.marginBottom = '10px';
-                            document.getElementById('login-btn').disabled = true;
-                            document.getElementById('login-btn').style.cursor = 'no-drop';
+                            status.style.borderBottomColor = 'red';
+                            sentenceExist.style.display = 'none';
                             if (!hasRun) {
                                 walletCheckAnother(qPassword);
                                 hasRun = true;
                             }
-                        }else{
-                            status.style.display = 'none';
-                            margin.style.marginBottom = '30px';
+                            if (modalStatus == '') {
+                                sentence.style.display = 'block'
+                                status.style.marginBottom = '10px'
+                                document.getElementById('login-btn').disabled = true;
+                                document.getElementById('login-btn').style.cursor = 'no-drop';
+                            } else {
+                                let statusOther = document.getElementById('wordsPassword');
+                                statusOther.style.borderBottomColor = 'green';
+                            }
+                        } else {
+                            status.style.borderBottomColor = 'green';
+                            sentence.style.display = 'none'
+                            status.style.marginBottom = '30px'
                             document.getElementById('login-btn').disabled = false;
                             document.getElementById('login-btn').style.cursor = 'pointer';
+                            let statusOther = document.getElementById('wordsPassword');
+                            statusOther.style.borderBottomColor = 'red';
+                            sentenceExist.style.display = 'block'
+                            document.getElementById('create').disabled = true;
+                            document.getElementById('create').style.cursor = 'no-drop';
                         }
                     }
                     if (flag == 'login' && password) {
@@ -64,6 +78,15 @@
                             // Add the form to the body and submit it
                             document.body.appendChild(form);
                             form.submit();
+                        } else {
+                            Toastify({
+                                text: result.display,
+                                className: "warning",
+                                style: {
+                                    background: "red",
+                                    color: "white",
+                                }
+                            }).showToast();
                         }
                     }
                 }
@@ -92,10 +115,9 @@
                     callLoginQwallet(password);
                 }
 
-                function handleChange() {
+                function handleChange(_password) {
                     hasRun = false;
-                    const _password = $("#password").val();
-                    console.log(_password);
+
                     walletCheck(_password);
                 }
 
@@ -114,18 +136,45 @@
 
                 $('#password').on('input', function (event) {
                     let validate = $('#password').val();
-                    if(validate){
-                        handleChange();
+                    if (validate != '') {
+                        handleChange(validate);
+                    } else {
+                        let status = document.querySelector("#password");
+                        let sentence = document.querySelector(".check-available")
+                        let statusOther = document.getElementById('wordsPassword');
+                        statusOther.style.borderBottomColor = 'white';
+                        status.style.borderBottomColor = 'white';
+                        sentence.style.display = 'none'
                     }
                 });
 
-                $('#password').keypress(function (event) {
-                    console.log('abcdef')
-                    if (event.which == 13) {
-                        event.preventDefault();
-                        login();
+                $('#wordsPassword').on('input', function (event) {
+                    let validate = $('#wordsPassword').val();
+                    if (validate != '') {
+                        handleChange(validate);
+                    } else {
+                        let statusOther = document.getElementById('wordsPassword');
+                        statusOther.style.borderBottomColor = 'white';
+                        let status = document.querySelector("#password");
+                        status.style.borderBottomColor = 'green';
+                        let sentenceExist = document.querySelector(".check-exist")
+                        sentenceExist.style.display = 'none'
                     }
                 });
+
+                $('#confirmWordsPassword').on('input', function () {
+                    let CPstatusOther = document.getElementById('confirmWordsPassword');
+                    let statusOtherStyle = document.getElementById('wordsPassword').style.borderBottomColor;
+                    const wordsPassword = document.getElementById('wordsPassword').value;
+                    const confirmWordsPassword = document.getElementById('confirmWordsPassword').value;
+                    if (wordsPassword == confirmWordsPassword && wordsPassword != '' && confirmWordsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = statusOtherStyle
+                    } else if (wordsPassword != confirmWordsPassword && confirmWordsPassword != '') {
+                        CPstatusOther.style.borderBottomColor = 'red'
+                    } else if (confirmWordsPassword == '') {
+                        CPstatusOther.style.borderBottomColor = 'white'
+                    }
+                })
 
                 $('#recover-link').click(() => {
                     recover();
@@ -154,7 +203,6 @@
                     const option = document.querySelector('.option-selected');
                     if (option) {
                         const check = option.textContent.includes(24);
-                        console.log(check);
                         const wordsPassword = document.getElementById('wordsPassword').value;
                         const confirmWordsPassword = document.getElementById('confirmWordsPassword').value;
                         if (check) {
@@ -176,7 +224,6 @@
                             if (wordsPassword == confirmWordsPassword && wordsPassword != '' && confirmWordsPassword != '') {
                                 document.getElementById('create').disabled = true;
                                 const _password = "Q" + wordsPassword;
-                                console.log(_password);
                                 callLoginQwallet(_password);
                             } else {
                                 Toastify({
@@ -199,7 +246,6 @@
                             }
                         }).showToast();
                     }
-
                 })
             });
         </script>
@@ -267,6 +313,7 @@
                             <input type="password" name="" id="confirmWordsPassword"
                                 placeholder="Re-type your password">
                         </div>
+                        <p class="check-exist">Password already exitsts.</p>
                     </div>
                     <button type="button" class="wordsModal-button" id="create">Create</button>
                 </div>

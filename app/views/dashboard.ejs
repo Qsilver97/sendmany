@@ -10,11 +10,10 @@
         let accounts = eval(`<%- JSON.stringify(result.display) %>`);
         let confirmTickNumber = 5;
         let currentTick = null;
-        console.log(accounts);
         let currentAccountIdx = 0;
         let deleteIdx = null;
-        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[0], flag: "address"} })
 
+        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[0], flag: "address"} })
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
@@ -64,6 +63,7 @@
                         }
                         const index = accounts.length - count;
                         accounts[index] = result.display
+                        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: result.display, flag: "address"} })
                         $("#accounts").append(
                             `
                             <div class="account" id="account${index}">
@@ -109,8 +109,9 @@
                             url: 'postCheckAccount',
                             data: { accounts }
                         })
-                        .done((data) => {
+                        .done(async (data) => {
                             accounts.map((account, idx) => {
+                                console.log(account)
                                 if(account != "") {
                                     $("#accounts").append(
                                         `
@@ -125,6 +126,11 @@
                                     )
                                 }
                             })
+
+                            for(let idx = 0; idx < accounts.length; idx ++) {
+                                await delay(100)
+                                socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[idx], flag: "address"} })
+                            }
                         })
                         .fail((error) => {
                             console.log(error)
@@ -231,16 +237,35 @@
                     }
                 }
                 const index = accounts.length - count;
-                callLoginQwallet(`login ${password},${index},derivation${index}`, 'addaccount');
+                if(index < 100){
+                    if(index > 20){
+                        document.getElementById('accounts').style.height = '600px'
+                    }
+                    callLoginQwallet(`login ${password},${index},derivation${index}`, 'addaccount');
+                }else{
+                    Toastify({
+                        text: "You can't create more than 100 addresses.",
+                        className: "warning",
+                        style: {
+                            background: "red",
+                            color: "white",
+                        }
+                    }).showToast();
+                }
             });
 
             $("#transfer").click(() => {
                 const amount = $("#amount").val();
                 const address = $("#address").val();
-                console.log(`send ${password},${currentAccountIdx},${currentTick + confirmTickNumber},${address},${amount}`);
                 callLoginQwallet(`send ${password},${currentAccountIdx},${currentTick + confirmTickNumber},${address},${amount}`, 'transfer');
             })
 
+            $('.center').click(() => {
+                console.log("aaa");
+                if(document.querySelectorAll('.account').length > 20){
+                    document.getElementById('accounts').style.height = '600px'
+                }
+            })
         });
     </script>
 </head>
@@ -341,7 +366,7 @@
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLongTitle">Accouts</h5>
+                    <h5 class="modal-title" id="exampleModalLongTitle">Addresses</h5>
                     <div class="config">
                         <svg id="add-account" aria-hidden="true" focusable="false" data-prefix="fal"
                             data-icon="plus"

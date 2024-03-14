@@ -33,6 +33,10 @@ module.exports = function (io) {
                 socket.emit('log', { value: data.toString(), flag: 'log' });
             });
 
+            liveSocketChild.stdout.on('data', (data) => {
+                console.log(data.toString(), 'liveSocket');
+            });
+
             mainChild.stderr.on('data', (data) => {
                 socket.emit('log', { value: `ERROR: ${data.toString()}`, flag: 'log' });
             });
