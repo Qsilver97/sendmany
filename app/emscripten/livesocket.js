@@ -38,7 +38,6 @@ liveSocket.onmessage = function (event) {
         // startTime = performance.now()
         try {
             let data = JSON.parse(event.data);
-            console.log(data, "------------This is data----------")
             if (data.address) {
                 addressStartTime[data.address] = performance.now()
             }
@@ -48,7 +47,6 @@ liveSocket.onmessage = function (event) {
         if (typeof event.data == 'string' && event.data.startsWith('{') && event.data.endsWith('}')) {
             socket.emit('broadcast', { command: 'liveSocketResponse', message: event.data });
         } else {
-            console.log("This is string!", event.data)
         }
     }
 }
