@@ -70,6 +70,11 @@ setInterval(() => {
 }, 1000);
 
 socket.on('liveSocketRequest', async (message) => {
+    if(message.flag == "v1request") {
+        console.log("----------------v1request-----------------------")
+        liveSocket.send(message.data);
+        console.log("----------------v1request-----------------------")
+    }
     if (addressStartTime[message.data] && message.flag == "address") {
         console.log('Already sent this address')
     } else {
@@ -78,7 +83,9 @@ socket.on('liveSocketRequest', async (message) => {
             addressStartTime[message.data] = performance.now()
             liveSocket.send(message.data);
         } else if (message.data != '' && message.flag == 'transfer') {
+            console.log("----------------transfer-----------------------")
             console.log(message.data)
+            console.log("----------------transfer-----------------------")
             liveSocket.send(message.data, 4);
         }
     }

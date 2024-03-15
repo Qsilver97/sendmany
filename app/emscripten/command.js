@@ -40,7 +40,6 @@ async function v1request() {
     try {
         const result = await callQwallet({ command: "v1request", flag: "v1request" });
         const parsedResult = JSON.parse(result.value);
-        console.log(parsedResult,"parsedResult")
         if (parsedResult.result === 0) {
             socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: parsedResult.display, flag: "v1request" } })
         } else {
