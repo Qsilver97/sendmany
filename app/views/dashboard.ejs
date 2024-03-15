@@ -24,7 +24,7 @@
             }
 
             function logout() {
-                socket.emit('start', { message: "Restart the server!" })
+                socket.emit('run', { command: "logout", flag: "logout" })
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'logout';
