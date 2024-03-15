@@ -245,16 +245,16 @@
                             amounts.push({ address: addre, balance: bal });
                         }
 
-                        const addressContents = document.querySelectorAll('.address-content');
-                        addressContents.forEach((item)=>{
-                            const amountObj = amounts.find(item => item.address === item.textContent.trim());
-                            const amountItem = amountObj ? amountObj.balance : 'undefined';
-                            item.append(
-                                `
-                                <span>${amountItem}</span>
-                                `
-                            )
-                        })
+                        //const addressContents = document.querySelectorAll('.address-content');
+                        //addressContents.forEach((item)=>{
+                        //    const amountObj = amounts.find(item => item.address === item.textContent.trim());
+                        //    const amountItem = amountObj ? amountObj.balance : 'undefined';
+                        //    item.append(
+                        //        `
+                        //        <span>${amountItem}</span>
+                        //        `
+                        //    )
+                        //})
                     }
 
                     const currentAccount = document.getElementById('current-account').textContent;

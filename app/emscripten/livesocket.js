@@ -71,9 +71,7 @@ setInterval(() => {
 
 socket.on('liveSocketRequest', async (message) => {
     if(message.flag == "v1request") {
-        console.log("----------------v1request-----------------------")
         liveSocket.send(message.data);
-        console.log("----------------v1request-----------------------")
     }
     if (addressStartTime[message.data] && message.flag == "address") {
         console.log('Already sent this address')
