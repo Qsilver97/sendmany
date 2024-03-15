@@ -41,7 +41,7 @@ socket.on('v1request', async () => {
     try {
         const result = await callQwallet({ command: "v1request", flag: "v1request" });
         const parsedResult = JSON.parse(result.value);
-
+        console.log(parsedResult,"parsedResult")
         if (parsedResult.result === 0) {
             // Emit 'v1response' event with the result if the 'result' property is 0
             // socket.emit('broadcast', { command: 'v1response', message: result });

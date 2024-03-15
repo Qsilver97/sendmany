@@ -34,7 +34,7 @@ module.exports = function (io) {
             });
 
             liveSocketChild.stdout.on('data', (data) => {
-                console.log(data.toString(), 'liveSocket');
+                console.log(`-----------sent socket---------\n`, data.toString());
             });
 
             mainChild.stderr.on('data', (data) => {
@@ -47,7 +47,6 @@ module.exports = function (io) {
         });
 
         socket.on('run', (msg) => {
-            console.log(msg.command)
             socket.broadcast.emit('qwallet', msg);
         });
 
@@ -56,7 +55,10 @@ module.exports = function (io) {
         });
 
         socket.on('broadcast', (message) => {
-            socket.broadcast.emit(message.command, message.message);
+            // console.log(message.message.data)
+            // if(message.wasm==1){
+                socket.broadcast.emit(message.command, message.message);
+            // }
         });
 
         socket.on('disconnect', () => {

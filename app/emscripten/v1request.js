@@ -8,9 +8,9 @@ const baseURL = `http://localhost:${PORT}`;
 const socket = io(baseURL);
 
 // Regularly emit 'broadcast' events every 1000 milliseconds (1 second)
-setInterval(() => {
-    socket.emit('broadcast', { command: 'v1request', message: { command: 'testmessage', flag: 'v1request' } });
-}, 1000);
+// setInterval(() => {
+//     socket.emit('broadcast', { command: 'v1request', message: { command: 'testmessage', flag: 'v1request' } });
+// }, 1000);
 
 // Listen for 'v1response' events from the server
 socket.on('v1response', async (message) => {

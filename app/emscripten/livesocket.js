@@ -15,19 +15,20 @@ const liveSocket = new WebSocket(liveSocketURL);
 
 // Event handler for successfully opening a connection
 liveSocket.on('open', () => {
-    console.log("Connected to the server");
+    // console.log("Connected to the server");
 });
 
 liveSocket.on('error', (error) => {
-    console.error(`WebSocket error: ${error}`);
+    // console.error(`WebSocket error: ${error}`);
 });
 
-liveSocket.onmessage = function(event) {
+liveSocket.onmessage = function (event) {
     // console.log(event.data, 222, typeof event.data)
-    if(event.data == "") {
+    if (event.data == "") {
         let endTime = performance.now();
-        for(let address in addressStartTime) {
-            if(endTime > addressStartTime[address] + 6000) {
+        for (let address in addressStartTime) {
+            if (endTime > addressStartTime[address] + 6000) {
+                console.log(address, 1)
                 liveSocket.send(address)
             }
         }
@@ -35,13 +36,18 @@ liveSocket.onmessage = function(event) {
         // startTime = performance.now()
         try {
             let data = JSON.parse(event.data);
-            if(data.address) {
+            if (data.address) {
                 addressStartTime[data.address] = performance.now()
             }
+            // console.log(data, "ddddddddddddddddddddd")
         } catch (error) {
-            
+
         }
-        socket.emit('broadcast', { command: 'liveSocketResponse', message: event.data });
+        if (typeof event.data == 'string' && event.data.startsWith('{') && event.data.endsWith('}')) {
+            socket.emit('broadcast', { command: 'liveSocketResponse', message: event.data });
+        } else {
+            // console.log("This is string!", event.data)
+        }
     }
 }
 
@@ -51,23 +57,28 @@ liveSocket.on('close', () => {
 
 setInterval(() => {
     let endTime = performance.now();
-    for(let address in addressStartTime) {
-        if(endTime > addressStartTime[address] + 6000) {
+    // console.log(endTime,"endTime", addressStartTime, "addressstarttime")
+    for (let address in addressStartTime) {
+        if (endTime > addressStartTime[address] + 60000) {
+            console.log(address, 2)
             liveSocket.send(address)
         }
     }
 }, 1000);
 
 socket.on('liveSocketRequest', async (message) => {
-    if(addressStartTime[message.data] && message.flag == "address"){
-        console.log('Already sent this address')
+    if (addressStartTime[message.data] && message.flag == "address") {
+        // console.log('Already sent this address')
     } else {
-        if(message.data != "" && message.flag == "address"){
-            console.log(message.data, "ssss")
+        if (message.data != "" && message.flag == "address" && message.data != 'status') {
+            console.log(message.data, 3)
             liveSocket.send(message.data);
+        } else if (message.data != '' && message.flag == 'transfer') {
+            console.log(message.data)
+            liveSocket.send(message.data, 4);
         }
     }
-    if(message.flag == "address" && message.data != "") {
+    if (message.flag == "address" && message.data != "") {
         addressStartTime[message.data] = performance.now()
     }
 })

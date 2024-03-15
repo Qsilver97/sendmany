@@ -4,68 +4,72 @@
 <head>
     <title>Dashboard</title>
     <%- include('layout/header') %>
-    <script>
-        const socket = io();
-        let password = "<%=password %>";
-        let accounts = eval(`<%- JSON.stringify(result.display) %>`);
-        let confirmTickNumber = 5;
-        let currentTick = null;
-        let currentAccountIdx = 0;
-        let deleteIdx = null;
+        <script>
+            const socket = io();
+            let password = "<%=password %>";
+            let accounts = eval(`<%- JSON.stringify(result.display) %>`);
+            let confirmTickNumber = 5;
+            let currentTick = null;
+            let currentAccountIdx = 0;
+            let deleteIdx = null;
+            let success = false;
+            let destAddress = null;
+            let sent = null;
+            let tickNum = null;
 
-        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[0], flag: "address"} })
-        function delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+            socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: accounts[0], flag: "address" } })
+            function delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
 
-        function logout() {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'logout';
-            document.body.appendChild(form);
-            form.submit();
-        }
+            function logout() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'logout';
+                document.body.appendChild(form);
+                form.submit();
+            }
 
-        // Send command to QWallet
-        function callLoginQwallet(command, flag) {
-            socket.emit('run', { command, flag });
-        }
+            // Send command to QWallet
+            function callLoginQwallet(command, flag) {
+                socket.emit('run', { command, flag });
+            }
 
-        function selectAddress(address) {
-            const idx = accounts.findIndex((item) => item == address);
-            currentAccountIdx = idx;
-            console.log(currentAccountIdx);
-            $("#current-account").text(accounts[idx])
-            // socket.emit('broadcast', { command: 'liveSocketRequest', message: {address} })
-            $('#accountModal').modal('hide');
-        }
+            function selectAddress(address) {
+                const idx = accounts.findIndex((item) => item == address);
+                currentAccountIdx = idx;
+                console.log(currentAccountIdx);
+                $("#current-account").text(accounts[idx])
+                // socket.emit('broadcast', { command: 'liveSocketRequest', message: {address} })
+                $('#accountModal').modal('hide');
+            }
 
-        // Function to handle result of Qwallet call
-        function handleResult(msg) {
-            const result = JSON.parse(msg.value);
-            const flag = msg.flag;
+            // Function to handle result of Qwallet call
+            function handleResult(msg) {
+                const result = JSON.parse(msg.value);
+                const flag = msg.flag;
 
-            if(result.result == 0) {
-                if (flag == 'addaccount' && password) {
-                    $.ajax({
-                        type: 'POST',
-                        url: '/addaccount',
-                        data: result,
-                    })
-                    .done((data) => {
-                        let count = 0;
-                        for (let i = accounts.length - 1; i >= 0; i--) {
-                            if (accounts[i] === '') {
-                                count++;
-                            } else {
-                                break; // Break the loop if the current element is not an empty string
-                            }
-                        }
-                        const index = accounts.length - count;
-                        accounts[index] = result.display
-                        socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: result.display, flag: "address"} })
-                        $("#accounts").append(
-                            `
+                if (result.result == 0) {
+                    if (flag == 'addaccount' && password) {
+                        $.ajax({
+                            type: 'POST',
+                            url: '/addaccount',
+                            data: result,
+                        })
+                            .done((data) => {
+                                let count = 0;
+                                for (let i = accounts.length - 1; i >= 0; i--) {
+                                    if (accounts[i] === '') {
+                                        count++;
+                                    } else {
+                                        break; // Break the loop if the current element is not an empty string
+                                    }
+                                }
+                                const index = accounts.length - count;
+                                accounts[index] = result.display
+                                socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: result.display, flag: "address" } })
+                                $("#accounts").append(
+                                    `
                             <div class="account" id="account${index}">
                                 <span onclick="selectAddress('${result.display}')">${result.display}</span>
                                 <div class="account-setting">
@@ -74,47 +78,50 @@
                                 </div>
                             </div>
                             `
-                        )
-                    })
-                    .fail((error) => {
-                        console.log(error)
-                    })
-                }
+                                )
+                            })
+                            .fail((error) => {
+                                console.log(error)
+                            })
+                    }
 
-                else if (flag == 'transfer' && password) {
-                    console.log(result, 'transfer');
-                    socket.emit("braodcast", {command: "liveSocketRequest", message: {data: result.display.rawhex, flag: "transfer"}});
-                }
-    
-                else if (flag == 'deleteaccount' && password) {
-                    $(`#account${deleteIdx}`).remove()
-                    $.ajax({
-                        type: 'POST',
-                        url: 'postDeleteAccount',
-                        data: {address: accounts[deleteIdx]},
-                    })
-                    .done((data) => {
-                        accounts[deleteIdx] = '';
-                    })
-                    .fail((error) => {
-                        console.log(error)
-                    })
-                }
+                    else if (flag == 'transfer' && password) {
+                        console.log(result, 'transfer');
+                        if (result.display.rawhex) {
+                            console.log(result.display.rawhex, "asdfasdfasdfasdf");
+                            socket.emit("broadcast", { command: "liveSocketRequest", message: { data: result.display.rawhex, flag: "transfer" } });
+                        }
+                    }
 
-                else if (flag == 'checkAllAccount' && password) {
-                    if(result.seedpage == 0) {
-                        accounts = result.display;
+                    else if (flag == 'deleteaccount' && password) {
+                        $(`#account${deleteIdx}`).remove()
                         $.ajax({
                             type: 'POST',
-                            url: 'postCheckAccount',
-                            data: { accounts }
+                            url: 'postDeleteAccount',
+                            data: { address: accounts[deleteIdx] },
                         })
-                        .done(async (data) => {
-                            accounts.map((account, idx) => {
-                                console.log(account)
-                                if(account != "") {
-                                    $("#accounts").append(
-                                        `
+                            .done((data) => {
+                                accounts[deleteIdx] = '';
+                            })
+                            .fail((error) => {
+                                console.log(error)
+                            })
+                    }
+
+                    else if (flag == 'checkAllAccount' && password) {
+                        if (result.seedpage == 0) {
+                            accounts = result.display;
+                            $.ajax({
+                                type: 'POST',
+                                url: 'postCheckAccount',
+                                data: { accounts }
+                            })
+                                .done(async (data) => {
+                                    accounts.map((account, idx) => {
+                                        console.log(account)
+                                        if (account != "") {
+                                            $("#accounts").append(
+                                                `
                                         <div class="account" id="account${idx}">
                                             <span onclick="selectAddress('${account}')">${account}</span>
                                             <div class="account-setting">
@@ -123,46 +130,49 @@
                                             </div>
                                         </div>
                                         `
-                                    )
-                                }
-                            })
+                                            )
+                                        }
+                                    })
 
-                            for(let idx = 0; idx < accounts.length; idx ++) {
-                                await delay(100)
-                                socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[idx], flag: "address"} })
-                            }
-                        })
-                        .fail((error) => {
-                            console.log(error)
-                        })
+                                    for (let idx = 0; idx < accounts.length; idx++) {
+                                        await delay(100)
+                                        if (accounts[idx] != '') {
+                                            console.log(accounts[idx]);
+                                            socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: accounts[idx], flag: "address" } })
+                                        }
+                                    }
+                                })
+                                .fail((error) => {
+                                    console.log(error)
+                                })
+                        }
+                    }
+
+                    else if (flag == "wss") {
+                        console.log(result, flag)
                     }
                 }
+            }
 
-                else if (flag == "wss") {
-                    console.log(result, flag)
+            function deleteAccount(idx) {
+                // delete password,index
+                deleteIdx = idx
+                if (idx == 0) {
+                    callLoginQwallet(`delete ${password},${idx}`, 'deleteaccount');
+                    logout()
                 }
-            }
-        }
-
-        function deleteAccount(idx) {
-            // delete password,index
-            deleteIdx = idx
-            if(idx == 0) {
                 callLoginQwallet(`delete ${password},${idx}`, 'deleteaccount');
-                logout()
+                $("#deleteModal").modal('hide')
+                $("#deleteModal").remove()
             }
-            callLoginQwallet(`delete ${password},${idx}`, 'deleteaccount');
-            $("#deleteModal").modal('hide')
-            $("#deleteModal").remove()
-        }
 
-        function showDeleteAccountModal(idx) {
-            let modalBody = ""
-            if(idx == 0){
-                modalBody = "<span>This is a primary account. If you delete this account, all accounts will be deleted.</span> </br>"
-            }
-            $('body').append(
-                `
+            function showDeleteAccountModal(idx) {
+                let modalBody = ""
+                if (idx == 0) {
+                    modalBody = "<span>This is a primary account. If you delete this account, all accounts will be deleted.</span> </br>"
+                }
+                $('body').append(
+                    `
                     <div class="modal delete-account-modal" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalTitle" aria-hidden="true" style="display: block">
                         <div class="modal-dialog modal-dialog-centered" role="document" >
                             <div class="modal-content" >
@@ -190,84 +200,122 @@
                         </div>
                     </div>
                 `
-            )
-        }
-
-        function handleLiveSocket(msg) {
-            console.log(msg, typeof msg);
-            try {
-                let _msg = JSON.parse(msg);
-                const currentAccount = document.getElementById('current-account').textContent;
-                const cleanedString = currentAccount.replace(/\s+/g, '');
-                if(_msg.address && _msg.address == cleanedString) {
-                    $("#balance").text(_msg.balance)
-                }
-                // else {
-                //     $("#tick").text(_msg.tick)
-                // }
-                if(_msg.command == "CurrentTickInfo") {
-                    currentTick = _msg.tick;
-                    $("#tick").text(_msg.tick);
-                }
-                
-                if(_msg.wasm == 1) {
-                    socket.emit('broadcast', {command: "wssRequest", message: _msg})
-                }
-            } catch (error) {
-                console.log(error)
+                )
             }
-        }
 
-        socket.on('result', handleResult)
-        socket.on('transfer', handleResult)
-        socket.on('wssResponse', (msg) => handleResult)
-        socket.on('testemit', (msg) => console.log(msg))
-        socket.on('liveSocketResponse', handleLiveSocket)
+            function handleLiveSocket(msg) {
+                console.log(msg, typeof msg);
+                try {
+                    let _msg = JSON.parse(msg);
+                    const currentAccount = document.getElementById('current-account').textContent;
+                    const cleanedString = currentAccount.replace(/\s+/g, '');
+                    let preBalance = _msg.balance;
+                    let balance = $('#balance').text();
+                    if (_msg.address && _msg.address == cleanedString) {
+                        if (preBalance != balance && _msg.sent != 0) {
+                            document.getElementById('transfer').disabled = false;
+                            document.getElementById('transfer').style.cursor = 'pointer'
+                            document.getElementById('transfer').textContent = "Send";
+                            console.log(_msg.spectrum);
 
-        document.addEventListener('DOMContentLoaded', function () {
-            socket.emit('run', {command: `list ${password}`, flag: "checkAllAccount"})
-            // Setup button click handlers
-            $("#add-account").click(() => {
-                let count = 0;
-                for (let i = accounts.length - 1; i >= 0; i--) {
-                    if (accounts[i] === '') {
-                        count++;
-                    } else {
-                        break; // Break the loop if the current element is not an empty string
+                        } else {
+                            if(_msg.tick > tickNum){
+                                callLoginQwallet(`send ${password},${currentAccountIdx},${tickNum + confirmTickNumber},${destAddress},${sent}`, 'transfer');
+                            }else{
+                                socket.on('liveSocketResponse', handleLiveSocket)
+                            }
+                        }
+
                     }
+                    if (_msg.address && _msg.address == cleanedString) {
+                        $("#balance").text(_msg.balance)
+                    }
+                    // else {
+                    //     $("#tick").text(_msg.tick)
+                    // }
+                    if (_msg.command == "CurrentTickInfo") {
+                        currentTick = _msg.tick;
+                        $("#tick").text(_msg.tick);
+                    }
+
+                    if (_msg.wasm == 1) {
+                        socket.emit('broadcast', { command: "wssRequest", message: _msg })
+                    }
+                } catch (error) {
+                    console.log(error)
                 }
-                const index = accounts.length - count;
-                if(index < 100){
-                    if(index > 20){
+            }
+
+            socket.on('result', handleResult)
+            socket.on('transfer', handleResult)
+            socket.on('wssResponse', (msg) => handleResult)
+            //socket.on('testemit', (msg) => console.log(msg))
+            socket.on('liveSocketResponse', handleLiveSocket)
+
+            document.addEventListener('DOMContentLoaded', function () {
+                socket.emit('run', { command: `list ${password}`, flag: "checkAllAccount" })
+                // Setup button click handlers
+                $("#add-account").click(() => {
+                    let count = 0;
+                    for (let i = accounts.length - 1; i >= 0; i--) {
+                        if (accounts[i] === '') {
+                            count++;
+                        } else {
+                            break; // Break the loop if the current element is not an empty string
+                        }
+                    }
+                    const index = accounts.length - count;
+                    if (index < 100) {
+                        if (index > 20) {
+                            document.getElementById('accounts').style.height = '600px'
+                        }
+                        callLoginQwallet(`login ${password},${index},derivation${index}`, 'addaccount');
+                    } else {
+                        Toastify({
+                            text: "You can't create more than 100 addresses.",
+                            className: "warning",
+                            style: {
+                                background: "red",
+                                color: "white",
+                            }
+                        }).showToast();
+                    }
+                });
+
+                function convertToNumber(value) {
+                    return parseInt(value.replaceAll(',', ''));
+                }
+
+                $("#transfer").click(() => {
+                    document.getElementById('transfer').disabled = true;
+                    document.getElementById('transfer').style.cursor = 'no-drop';
+                    document.getElementById('transfer').textContent = "Sending";
+                    const amount = convertToNumber($("#amount").val());
+                    const address = $("#address").val();
+                    destAddress = address;
+                    sent = amount;
+                    tickNum = currentTick + confirmTickNumber;
+                    callLoginQwallet(`send ${password},${currentAccountIdx},${tickNum},${address},${amount}`, 'transfer');
+                })
+
+                $('.center').click(() => {
+                    console.log("aaa");
+                    if (document.querySelectorAll('.account').length > 20) {
                         document.getElementById('accounts').style.height = '600px'
                     }
-                    callLoginQwallet(`login ${password},${index},derivation${index}`, 'addaccount');
-                }else{
-                    Toastify({
-                        text: "You can't create more than 100 addresses.",
-                        className: "warning",
-                        style: {
-                            background: "red",
-                            color: "white",
-                        }
-                    }).showToast();
-                }
+                })
+
+                const amountInput = document.getElementById('amount');
+
+                amountInput.addEventListener('input', function () {
+                    let value = this.value.replace(/\D/g, '');
+
+                    value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+                    this.value = value;
+                });
             });
-
-            $("#transfer").click(() => {
-                const amount = $("#amount").val();
-                const address = $("#address").val();
-                callLoginQwallet(`send ${password},${currentAccountIdx},${currentTick + confirmTickNumber},${address},${amount}`, 'transfer');
-            })
-
-            $('.center').click(() => {
-                console.log("aaa");
-                if(document.querySelectorAll('.account').length > 20){
-                    document.getElementById('accounts').style.height = '600px'
-                }
-            })
-        });
-    </script>
+        </script>
 </head>
 
 <body>
@@ -290,12 +338,12 @@
                     <button class="dropdown-item" type="button" onclick="logout()">Logout</button>
                 </div>
             </div>
-            
+
         </header>
         <div class="body">
             <div class="summary">
                 <h3>
-                    Balance: 
+                    Balance:
                     <span id="balance">0</span>
                 </h3>
 
@@ -307,7 +355,7 @@
             <div class="more-info">
                 <div class="send">
                     <input type="text" class="address" id="address" placeholder="Address" />
-                    <input type="number" class="amount" id="amount" placeholder="Amount" />
+                    <input type="text" class="amount" id="amount" placeholder="Amount" />
                     <button id="transfer">Send</button>
                 </div>
                 <div class="activity">
@@ -354,7 +402,7 @@
                                 <td>9999999</td>
                             </tr> -->
                         </tbody>
-                      </table>
+                    </table>
                 </div>
             </div>
         </div>
@@ -368,8 +416,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="exampleModalLongTitle">Addresses</h5>
                     <div class="config">
-                        <svg id="add-account" aria-hidden="true" focusable="false" data-prefix="fal"
-                            data-icon="plus"
+                        <svg id="add-account" aria-hidden="true" focusable="false" data-prefix="fal" data-icon="plus"
                             class="svg-inline--fa fa-plus  icon_iconRecipe_size_l__102a6quc icon_iconInButton__102a6qu0 actionableIcon_actionableIconRecipe__1q4hsc25 actionableIcon_actionableIconRecipe_variant_primary__1q4hsc26"
                             role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
                             color="var(--compIconColorDefault__1dinw7t17z)">

@@ -73,7 +73,7 @@ exports.postCheck = (req, res) => {
 
 exports.postAddAccount = (req, res) => {
     const io = socketManager.getIO()
-    io.emit('testemit', 'test emit message')
+    // io.emit('testemit', 'test emit message')
     seedInfo = { ...seedInfo, result: { ...seedInfo.result, display: `${seedInfo.result.display} ${req.body.display}` } }
     console.log(seedInfo, 'addaccount', req.body)
     res.send('aaaa')
