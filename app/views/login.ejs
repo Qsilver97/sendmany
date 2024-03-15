@@ -10,6 +10,7 @@
                 let password = null;
                 let hasRun = false;
                 // Function to handle result of Qwallet call
+                socket.emit('start', { message: "Restart the server!" })
                 function handleResult(msg) {
                     let result = JSON.parse(msg.value);
                     let flag = msg.flag;

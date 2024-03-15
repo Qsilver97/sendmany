@@ -9,14 +9,17 @@ module.exports = function (io) {
 
         const killChildProcesses = () => {
             if (mainChild) {
+                console.log("1======================================================================")
                 mainChild.kill();
                 mainChild = null;
             }
             if (v1Child) {
+                console.log("2======================================================================")
                 v1Child.kill();
                 v1Child = null;
             }
             if (liveSocketChild) {
+                console.log("3======================================================================")
                 liveSocketChild.kill();
                 liveSocketChild = null;
             }
@@ -24,7 +27,7 @@ module.exports = function (io) {
 
         socket.on('start', (msg) => {
             killChildProcesses();
-
+            console.log("Restart server!")
             mainChild = spawn('node', ['./emscripten/command.js']);
             v1Child = spawn('node', ['./emscripten/v1request.js']);
             liveSocketChild = spawn('node', ['./emscripten/livesocket.js'])
@@ -55,7 +58,7 @@ module.exports = function (io) {
         });
 
         socket.on('broadcast', (message) => {
-            // console.log(message.message.data)
+            // console.log(message)
             // if(message.wasm==1){
                 socket.broadcast.emit(message.command, message.message);
             // }

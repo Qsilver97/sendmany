@@ -23,6 +23,7 @@
             }
 
             function logout() {
+                socket.emit('start', { message: "Restart the server!" })
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'logout';
@@ -38,9 +39,8 @@
             function selectAddress(address) {
                 const idx = accounts.findIndex((item) => item == address);
                 currentAccountIdx = idx;
-                console.log(currentAccountIdx);
                 $("#current-account").text(accounts[idx])
-                // socket.emit('broadcast', { command: 'liveSocketRequest', message: {address} })
+                //socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[idx], flag: "address"} })
                 $('#accountModal').modal('hide');
             }
 
@@ -70,14 +70,14 @@
                                 socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: result.display, flag: "address" } })
                                 $("#accounts").append(
                                     `
-                            <div class="account" id="account${index}">
-                                <span onclick="selectAddress('${result.display}')">${result.display}</span>
-                                <div class="account-setting">
-                                    <i class="fa fa-copy" onclick="copyText('${result.display}')"></i>
-                                    <i class="fa fa-trash" onclick="showDeleteAccountModal('${index}')"></i>
-                                </div>
-                            </div>
-                            `
+                                    <div class="account" id="account${index}">
+                                        <span onclick="selectAddress('${result.display}')">${result.display}</span>
+                                        <div class="account-setting">
+                                            <i class="fa fa-copy" onclick="copyText('${result.display}')"></i>
+                                            <i class="fa fa-trash" onclick="showDeleteAccountModal('${index}')"></i>
+                                        </div>
+                                    </div>
+                                    `
                                 )
                             })
                             .fail((error) => {
@@ -118,18 +118,17 @@
                             })
                                 .done(async (data) => {
                                     accounts.map((account, idx) => {
-                                        console.log(account)
                                         if (account != "") {
                                             $("#accounts").append(
                                                 `
-                                        <div class="account" id="account${idx}">
-                                            <span onclick="selectAddress('${account}')">${account}</span>
-                                            <div class="account-setting">
-                                                <i class="fa fa-copy" onclick="copyText('${account}')"></i>
-                                                <i class="fa fa-trash" onclick="showDeleteAccountModal('${idx}')"></i>
-                                            </div>
-                                        </div>
-                                        `
+                                                <div class="account" id="account${idx}">
+                                                    <span onclick="selectAddress('${account}')">${account}</span>
+                                                    <div class="account-setting">
+                                                        <i class="fa fa-copy" onclick="copyText('${account}')"></i>
+                                                        <i class="fa fa-trash" onclick="showDeleteAccountModal('${idx}')"></i>
+                                                    </div>
+                                                </div>
+                                                `
                                             )
                                         }
                                     })
@@ -137,7 +136,6 @@
                                     for (let idx = 0; idx < accounts.length; idx++) {
                                         await delay(100)
                                         if (accounts[idx] != '') {
-                                            console.log(accounts[idx]);
                                             socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: accounts[idx], flag: "address" } })
                                         }
                                     }
@@ -219,9 +217,9 @@
                             console.log(_msg.spectrum);
 
                         } else {
-                            if(_msg.tick > tickNum){
+                            if (_msg.tick > tickNum) {
                                 callLoginQwallet(`send ${password},${currentAccountIdx},${tickNum + confirmTickNumber},${destAddress},${sent}`, 'transfer');
-                            }else{
+                            } else {
                                 socket.on('liveSocketResponse', handleLiveSocket)
                             }
                         }
@@ -299,7 +297,6 @@
                 })
 
                 $('.center').click(() => {
-                    console.log("aaa");
                     if (document.querySelectorAll('.account').length > 20) {
                         document.getElementById('accounts').style.height = '600px'
                     }

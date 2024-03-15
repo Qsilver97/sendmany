@@ -12,13 +12,14 @@ $(document).ready(() => {
     })
 })
 
-function logout() {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'logout';
-    document.body.appendChild(form);
-    form.submit();
-}
+// function logout() {
+//     socket.emit('broadcast', { command: 'start', message: "Restart the server!" })
+//     const form = document.createElement('form');
+//     form.method = 'POST';
+//     form.action = 'logout';
+//     document.body.appendChild(form);
+//     form.submit();
+// }
 
 function copyTextContent(element) {
     // Check if the clipboard API is available
