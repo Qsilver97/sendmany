@@ -36,23 +36,21 @@ socket.on('qwalletwithv1', async (req) => {
     await callQwallet(req); // Process the command but no need to log or emit
 });
 
-// Event listener for 'v1request'
-socket.on('v1request', async () => {
+async function v1request() {
     try {
         const result = await callQwallet({ command: "v1request", flag: "v1request" });
         const parsedResult = JSON.parse(result.value);
         console.log(parsedResult,"parsedResult")
         if (parsedResult.result === 0) {
-            // Emit 'v1response' event with the result if the 'result' property is 0
-            // socket.emit('broadcast', { command: 'v1response', message: result });
             socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: parsedResult.display, flag: "v1request" } })
         }
-        // No action is taken if the result is not 0
     } catch (error) {
-        // console.error('An error occurred:', error);
-        // Error handling logic can be expanded here
     }
-});
+}
+
+setInterval(() => {
+    v1request();
+}, 1000);
 
 socket.on('wssRequest', async (msg) => {
     try {
