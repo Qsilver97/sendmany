@@ -43,6 +43,8 @@ async function v1request() {
         console.log(parsedResult,"parsedResult")
         if (parsedResult.result === 0) {
             socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: parsedResult.display, flag: "v1request" } })
+        } else {
+            console.log(parsedResult)
         }
     } catch (error) {
     }

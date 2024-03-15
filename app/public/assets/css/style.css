@@ -384,7 +384,7 @@ body::after {
 }
 .modal .modal-content .modal-body .account {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   gap: 20px;
   font-family: "Roboto Mono";
@@ -393,6 +393,7 @@ body::after {
   cursor: pointer;
   width: 100%;
   padding: 3px;
+  text-align: center;
 }
 .modal .modal-content .modal-body .account span:hover {
   background-color: #001f3f;

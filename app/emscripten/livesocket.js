@@ -38,6 +38,7 @@ liveSocket.onmessage = function (event) {
         // startTime = performance.now()
         try {
             let data = JSON.parse(event.data);
+            console.log(data, "------------This is data----------")
             if (data.address) {
                 addressStartTime[data.address] = performance.now()
             }
@@ -47,7 +48,7 @@ liveSocket.onmessage = function (event) {
         if (typeof event.data == 'string' && event.data.startsWith('{') && event.data.endsWith('}')) {
             socket.emit('broadcast', { command: 'liveSocketResponse', message: event.data });
         } else {
-            // console.log("This is string!", event.data)
+            console.log("This is string!", event.data)
         }
     }
 }
@@ -72,7 +73,6 @@ socket.on('liveSocketRequest', async (message) => {
     if (addressStartTime[message.data] && message.flag == "address") {
         console.log('Already sent this address')
     } else {
-        console.log(message.data);
         if (message.data != "" && message.flag == "address" && message.data != 'status') {
             console.log(message.data, 3)
             addressStartTime[message.data] = performance.now()

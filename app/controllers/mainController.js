@@ -1,4 +1,6 @@
 const socketManager = require("./socketManager");
+const axios = require('axios')
+const TRANSACTION_URL = require('../utils/constants').TRANSACTION_URL
 
 let seedInfo = null;
 let confirmSeeds = new Array(24).fill("");
@@ -17,6 +19,20 @@ exports.getLogin = (req, res) => {
         reset()
         res.render('login')
     }
+}
+
+exports.getTransaction = (req, res) => {
+    const address = req.body.address
+    axios
+        .post(TRANSACTION_URL, {
+            "identity": address
+        })
+        .then(response => {
+            console.log(response.data);
+        })
+        .catch(error => {
+            // console.error(error);
+        });
 }
 
 exports.getRecover = (req, res) => {
@@ -124,6 +140,6 @@ exports.postCheckAccount = (req, res) => {
 exports.postDeleteAccount = (req, res) => {
     console.log(req.body.address)
     console.log(seedInfo)
-    seedInfo = { ...seedInfo, result: { ...seedInfo.result, display: seedInfo.result.display.replace(` ${req.body.address}`, "")} }
+    seedInfo = { ...seedInfo, result: { ...seedInfo.result, display: seedInfo.result.display.replace(` ${req.body.address}`, "") } }
     res.send('success')
 }

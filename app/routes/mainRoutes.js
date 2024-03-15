@@ -17,5 +17,6 @@ router.post('/dashboard', mainController.postDashboard);
 router.post('/logout', mainController.postLogout);
 router.post('/postCheckAccount', mainController.postCheckAccount);
 router.post('/postDeleteAccount', mainController.postDeleteAccount);
+router.post('/gettransactionhistory', mainController.getTransaction);
 
 module.exports = router;

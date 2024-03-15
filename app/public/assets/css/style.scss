@@ -440,7 +440,7 @@ $container-padding: 60px;
 
       .account {
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
         gap: 20px;
         font-family: 'Roboto Mono';
@@ -448,7 +448,7 @@ $container-padding: 60px;
           cursor: pointer;
           width: 100%;
           padding: 3px;
-
+          text-align: center;
           &:hover {
             background-color: #001f3f;
           }

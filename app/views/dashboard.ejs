@@ -16,6 +16,7 @@
             let destAddress = null;
             let sent = null;
             let tickNum = null;
+            let amounts = [];
 
             socket.emit('broadcast', { command: 'liveSocketRequest', message: { data: accounts[0], flag: "address" } })
             function delay(ms) {
@@ -43,6 +44,19 @@
                 //socket.emit('broadcast', { command: 'liveSocketRequest', message: {data: accounts[idx], flag: "address"} })
                 $('#accountModal').modal('hide');
             }
+
+            function getTransactionHistory() {
+                $.ajax({
+                    type: 'POST',
+                    url: '/gettransactionhistory',
+                    data: { address: accounts[currentAccountIdx] },
+                })
+                    .done((response) => {
+                        console.log(response)
+                    })
+            }
+
+            //getTransactionHistory()
 
             // Function to handle result of Qwallet call
             function handleResult(msg) {
@@ -122,9 +136,13 @@
                                             $("#accounts").append(
                                                 `
                                                 <div class="account" id="account${idx}">
-                                                    <span onclick="selectAddress('${account}')">${account}</span>
                                                     <div class="account-setting">
                                                         <i class="fa fa-copy" onclick="copyText('${account}')"></i>
+                                                    </div>
+                                                    <div class='address-content'>
+                                                        <span onclick="selectAddress('${account}')">${account}</span>
+                                                    </div>
+                                                    <div class="account-setting">
                                                         <i class="fa fa-trash" onclick="showDeleteAccountModal('${idx}')"></i>
                                                     </div>
                                                 </div>
@@ -205,6 +223,40 @@
                 console.log(msg, typeof msg);
                 try {
                     let _msg = JSON.parse(msg);
+                    if (_msg.address && _msg.balance) {
+                        const addre = _msg.address
+                        const bal = _msg.balance
+
+                        const addressExists = (array, address) => {
+                            return array.some(item => item.address === address);
+                        };
+
+                        const updateAddressBalance = (array, address, balance) => {
+                            array.forEach(item => {
+                                if (item.address === address) {
+                                    item.balance = balance;
+                                }
+                            });
+                        };
+
+                        if (addressExists(amounts, addre)) {
+                            updateAddressBalance(amounts, addre, bal);
+                        } else {
+                            amounts.push({ address: addre, balance: bal });
+                        }
+
+                        const addressContents = document.querySelectorAll('.address-content');
+                        addressContents.forEach((item)=>{
+                            const amountObj = amounts.find(item => item.address === item.textContent.trim());
+                            const amountItem = amountObj ? amountObj.balance : 'undefined';
+                            item.append(
+                                `
+                                <span>${amountItem}</span>
+                                `
+                            )
+                        })
+                    }
+
                     const currentAccount = document.getElementById('current-account').textContent;
                     const cleanedString = currentAccount.replace(/\s+/g, '');
                     let preBalance = _msg.balance;
@@ -215,6 +267,14 @@
                             document.getElementById('transfer').style.cursor = 'pointer'
                             document.getElementById('transfer').textContent = "Send";
                             console.log(_msg.spectrum);
+                            Toastify({
+                                text: "Success",
+                                className: "warning",
+                                style: {
+                                    background: "yellowGreen",
+                                    color: "white",
+                                }
+                            }).showToast();
 
                         } else {
                             if (_msg.tick > tickNum) {
